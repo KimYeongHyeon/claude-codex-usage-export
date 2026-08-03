@@ -5,6 +5,7 @@
 ![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white)
 ![Local first](https://img.shields.io/badge/data-local--first-0f766e)
 ![Excel export](https://img.shields.io/badge/export-.xlsx-217346?logo=microsoftexcel&logoColor=white)
+![MIT License](https://img.shields.io/badge/license-MIT-blue)
 
 Claude Usage Export has one focused purpose: turn the usage events already stored by Claude Code in `~/.claude/` into an Excel file you can inspect, sort, share, or analyze elsewhere.
 
@@ -168,3 +169,7 @@ Start the app with `CLAUDE_USAGE_USER=you@example.com npm start`. Local Claude C
 ## Scope
 
 This project is intentionally an export tool. It does not read Anthropic account quotas, replace the official billing console, upload telemetry, or attempt to reconstruct events missing from local Claude Code history.
+
+## License
+
+Released under the [MIT License](LICENSE).
