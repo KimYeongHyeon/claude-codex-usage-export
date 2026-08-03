@@ -1,0 +1,7 @@
+node_modules/
+*.xlsx
+.DS_Store
+.serena/
+docs/superpowers/
+e2e_demo/
+todolist/

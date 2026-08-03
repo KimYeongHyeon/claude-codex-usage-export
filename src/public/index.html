@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Usage Export</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f6f8;
+        --panel: #ffffff;
+        --text: #111827;
+        --muted: #6b7280;
+        --border: #d1d5db;
+        --accent: #1d4ed8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .page {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .preset-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .range-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin: 0 0 16px;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+
+      .range-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      .range-sep {
+        color: var(--muted);
+      }
+
+      .date-input {
+        appearance: none;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font: inherit;
+        background: var(--panel);
+        color: var(--text);
+      }
+
+      .range-clear {
+        padding: 8px 12px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      #applyRange[aria-pressed='true'] {
+        background: #dbeafe;
+        border-color: #93c5fd;
+        color: #1e3a8a;
+      }
+
+      .preset-button[aria-pressed='true'] {
+        background: #dbeafe;
+        border-color: #93c5fd;
+        color: #1e3a8a;
+      }
+
+      button,
+      .button-link {
+        appearance: none;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font: inherit;
+        background: var(--panel);
+        color: var(--text);
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .button-link {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      .status {
+        margin: 0 0 12px;
+        color: var(--muted);
+        min-height: 1.25em;
+      }
+
+      .totals-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin: 0 0 16px;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+
+      .total-card {
+        min-width: 0;
+      }
+
+      .total-label {
+        margin: 0 0 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .total-value {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1100px;
+      }
+
+      thead {
+        background: #eef2ff;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--border);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+        font-size: 14px;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        font-weight: 600;
+        white-space: nowrap;
+        padding: 0;
+      }
+
+      .sort-button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        padding: 10px 12px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        font: inherit;
+        font-weight: inherit;
+        color: inherit;
+        text-align: left;
+      }
+
+      .sort-button:hover,
+      .sort-button:focus-visible {
+        background: rgba(29, 78, 216, 0.08);
+      }
+
+      .sort-indicator {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      tbody tr:hover {
+        background: #f9fafb;
+      }
+
+      td.is-empty {
+        color: var(--muted);
+      }
+
+      .error {
+        color: #b91c1c;
+      }
+
+      .empty-state {
+        padding: 28px 16px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      .progress {
+        margin: 0 0 16px;
+      }
+
+      .progress-track {
+        height: 8px;
+        background: #e5e7eb;
+        border-radius: 999px;
+        overflow: hidden;
+        margin-bottom: 6px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #1d4ed8, #3b82f6);
+        transition: width 120ms linear;
+      }
+
+      .progress-text {
+        font-size: 12px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      #pagination button {
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="toolbar">
+        <h1 class="title">Usage Export</h1>
+        <div class="actions">
+          <div id="presetGroup" class="preset-group" aria-label="Date presets"></div>
+          <button id="refreshButton" type="button">Refresh</button>
+          <a id="downloadLink" class="button-link" href="/export.xlsx" download>Download Excel</a>
+        </div>
+      </div>
+
+      <div class="range-bar">
+        <span class="range-label">기간 직접 선택</span>
+        <input type="date" id="startDate" class="date-input" aria-label="시작 날짜" />
+        <span class="range-sep" aria-hidden="true">~</span>
+        <input type="date" id="endDate" class="date-input" aria-label="종료 날짜" />
+        <button id="applyRange" type="button">적용</button>
+        <button id="clearRange" type="button" class="range-clear" title="기간 선택 해제">초기화</button>
+      </div>
+
+      <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Loading rows...</p>
+      <div id="progress" class="progress" aria-hidden="true" style="display:none;">
+        <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+        <div id="progressText" class="progress-text"></div>
+      </div>
+      <section id="totalsBar" class="totals-bar" aria-label="Filtered totals"></section>
+
+      <div class="table-wrap">
+        <table aria-describedby="status">
+          <thead>
+            <tr id="headerRow"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div id="pagination" class="pagination" style="margin-top: 12px; display: none; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <button id="prevPage" type="button">◀ Prev</button>
+        <span id="pageInfo" style="font-size: 14px; color: var(--muted);"></span>
+        <button id="nextPage" type="button">Next ▶</button>
+        <span style="font-size: 12px; color: var(--muted); margin-left: 8px;">(100 rows per page)</span>
+      </div>
+    </main>
+
+    <script>
+      const columns = [
+        'Date',
+        'User',
+        'Cloud Agent ID',
+        'Automation ID',
+        'Kind',
+        'Model',
+        'Max Mode',
+        'Input (w/ Cache Write)',
+        'Input (w/o Cache Write)',
+        'Cache Read',
+        'Output Tokens',
+        'Total Tokens',
+        'Cost',
+      ];
+
+      const statusEl = document.getElementById('status');
+      const headerRow = document.getElementById('headerRow');
+      const tableBody = document.getElementById('tableBody');
+      const presetGroup = document.getElementById('presetGroup');
+      const refreshButton = document.getElementById('refreshButton');
+      const downloadLink = document.getElementById('downloadLink');
+      const totalsBar = document.getElementById('totalsBar');
+      const progressEl = document.getElementById('progress');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      const startDateInput = document.getElementById('startDate');
+      const endDateInput = document.getElementById('endDate');
+      const applyRangeButton = document.getElementById('applyRange');
+      const clearRangeButton = document.getElementById('clearRange');
+      const presetOptions = [
+        { value: 'today', label: 'Today' },
+        { value: 'yesterday', label: 'Yesterday' },
+        { value: 'last24h', label: 'Last 24h' },
+        { value: 'last7d', label: 'Last 7d' },
+        { value: 'last30d', label: 'Last 30d' },
+        { value: 'all', label: 'All' },
+      ];
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const DEFAULT_FETCH_DAYS = 30;
+      const numericColumns = new Set([
+        'Input (w/ Cache Write)',
+        'Input (w/o Cache Write)',
+        'Cache Read',
+        'Output Tokens',
+        'Total Tokens',
+      ]);
+      const sortableNumericColumns = new Set([...numericColumns, 'Cost']);
+      const totalsColumns = [
+        'Rows',
+        'Input (w/ Cache Write)',
+        'Input (w/o Cache Write)',
+        'Cache Read',
+        'Output Tokens',
+        'Total Tokens',
+        'Cost',
+      ];
+      const textCollator = new Intl.Collator(undefined, {
+        numeric: false,
+        sensitivity: 'base',
+      });
+      const numberFormatter = new Intl.NumberFormat();
+      const costFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      const dateFormatter = new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+      let allRows = [];
+      let activePreset = 'last30d';
+      let activeFilterNow = new Date();
+      let loadedSinceMs = null;
+      let activeFilterWindow = null;
+      // Custom calendar range: local-midnight Date objects (both required when active).
+      let customRange = { start: null, end: null };
+      let activeSort = {
+        column: null,
+        direction: null,
+      };
+      let progressPollId = null;
+      let progressActive = false;
+
+      // Pagination
+      let currentPage = 1;
+      const PAGE_SIZE = 100;
+
+      function renderHeader() {
+        headerRow.innerHTML = columns
+          .map((column) => {
+            const isActive = activeSort.column === column && activeSort.direction;
+            const ariaSort = isActive
+              ? activeSort.direction === 'asc'
+                ? 'ascending'
+                : 'descending'
+              : 'none';
+            const indicator = isActive ? (activeSort.direction === 'asc' ? '▲' : '▼') : '⇅';
+            return `<th scope="col" aria-sort="${ariaSort}"><button class="sort-button" type="button" data-sort-column="${escapeHtml(
+              column
+            )}" aria-label="Sort by ${escapeHtml(column)}. Current sort: ${ariaSort}.">${escapeHtml(
+              column
+            )}<span class="sort-indicator" aria-hidden="true">${indicator}</span></button></th>`;
+          })
+          .join('');
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function parseDateValue(value) {
+        if (!value) {
+          return null;
+        }
+
+        if (value instanceof Date) {
+          return Number.isNaN(value.getTime()) ? null : value;
+        }
+
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          const localDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          if (localDateMatch) {
+            const [, year, month, day] = localDateMatch;
+            const parsedLocalDate = new Date(Number(year), Number(month) - 1, Number(day));
+            return Number.isNaN(parsedLocalDate.getTime()) ? null : parsedLocalDate;
+          }
+        }
+
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+
+      function parseRowDate(row) {
+        return parseDateValue(row?.Date);
+      }
+
+      function toNumericValue(value) {
+        if (typeof value === 'number') {
+          return Number.isFinite(value) ? value : null;
+        }
+
+        if (typeof value === 'string' && value !== '') {
+          const numericValue = Number(value);
+          return Number.isFinite(numericValue) ? numericValue : null;
+        }
+
+        return null;
+      }
+
+      function toTimestamp(value) {
+        const parsed = parseDateValue(value);
+        if (!parsed) {
+          return null;
+        }
+
+        const timestamp = parsed.getTime();
+        return Number.isFinite(timestamp) ? timestamp : null;
+      }
+
+      function getComparableValue(column, value) {
+        if (value === null || value === undefined || value === '') {
+          return null;
+        }
+
+        if (column === 'Date') {
+          return toTimestamp(value);
+        }
+
+        if (sortableNumericColumns.has(column)) {
+          return toNumericValue(value);
+        }
+
+        return String(value);
+      }
+
+      function compareValues(column, left, right) {
+        if (column === 'Date' || sortableNumericColumns.has(column)) {
+          return left - right;
+        }
+
+        return textCollator.compare(left, right);
+      }
+
+      function sortRows(rows, sortState) {
+        const { column, direction } = sortState;
+        if (!columns.includes(column) || (direction !== 'asc' && direction !== 'desc')) {
+          return rows.slice();
+        }
+
+        const directionMultiplier = direction === 'asc' ? 1 : -1;
+
+        return rows
+          .map((row, index) => ({ row, index }))
+          .sort((leftEntry, rightEntry) => {
+            const leftValue = getComparableValue(column, leftEntry.row?.[column]);
+            const rightValue = getComparableValue(column, rightEntry.row?.[column]);
+            const leftEmpty = leftValue === null;
+            const rightEmpty = rightValue === null;
+
+            if (leftEmpty || rightEmpty) {
+              if (leftEmpty && rightEmpty) {
+                return leftEntry.index - rightEntry.index;
+              }
+
+              return leftEmpty ? 1 : -1;
+            }
+
+            const comparison = compareValues(column, leftValue, rightValue);
+            if (comparison !== 0) {
+              return comparison * directionMultiplier;
+            }
+
+            return leftEntry.index - rightEntry.index;
+          })
+          .map((entry) => entry.row);
+      }
+
+      function formatCellValue(column, value) {
+        if (value === null || value === undefined || value === '') {
+          return '';
+        }
+
+        if (column === 'Date') {
+          const parsed = parseDateValue(value);
+          return parsed ? escapeHtml(dateFormatter.format(parsed)) : escapeHtml(value);
+        }
+
+        if (numericColumns.has(column)) {
+          const numericValue = Number(value);
+          return Number.isFinite(numericValue) ? escapeHtml(numberFormatter.format(numericValue)) : escapeHtml(value);
+        }
+
+        if (column === 'Cost') {
+          const numericValue = Number(value);
+          if (!Number.isFinite(numericValue)) {
+            return escapeHtml(value);
+          }
+
+          const absoluteValue = Math.abs(numericValue);
+          if (absoluteValue > 0 && absoluteValue < 0.005) {
+            const sign = numericValue < 0 ? '-' : '';
+            return escapeHtml(`${sign}<0.01`);
+          }
+
+          return escapeHtml(costFormatter.format(numericValue));
+        }
+
+        return escapeHtml(value);
+      }
+
+      function startOfLocalDay(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      }
+
+      // Parse a 'YYYY-MM-DD' value from <input type="date"> into a local-midnight Date.
+      // Built manually to avoid new Date('YYYY-MM-DD') being interpreted as UTC.
+      function parseLocalDateInput(value) {
+        if (typeof value !== 'string' || !value) {
+          return null;
+        }
+        const [year, month, day] = value.split('-').map(Number);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+          return null;
+        }
+        return new Date(year, month - 1, day);
+      }
+
+      function getFilterWindow(preset, now) {
+        if (preset === 'custom') {
+          // 'end' is the selected day inclusive: extend to the start of the next day, exclusive.
+          const endExclusive = customRange.end
+            ? new Date(customRange.end.getTime() + DAY_MS)
+            : null;
+          return { start: customRange.start, end: endExclusive, inclusiveEnd: false };
+        }
+
+        const startToday = startOfLocalDay(now);
+        const startTomorrow = new Date(startToday);
+        startTomorrow.setDate(startTomorrow.getDate() + 1);
+        const startYesterday = new Date(startToday);
+        startYesterday.setDate(startYesterday.getDate() - 1);
+        const last24hStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const last7dStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        if (preset === 'today') {
+          return { start: startToday, end: startTomorrow, inclusiveEnd: false };
+        }
+
+        if (preset === 'yesterday') {
+          return { start: startYesterday, end: startToday, inclusiveEnd: false };
+        }
+
+        if (preset === 'last24h') {
+          return { start: last24hStart, end: now, inclusiveEnd: true };
+        }
+
+        if (preset === 'last7d') {
+          return { start: last7dStart, end: now, inclusiveEnd: true };
+        }
+
+        if (preset === 'last30d') {
+          const last30dStart = new Date(now.getTime() - 30 * DAY_MS);
+          return { start: last30dStart, end: now, inclusiveEnd: true };
+        }
+
+        return { start: null, end: null, inclusiveEnd: true };
+      }
+
+      function getSinceMsForPreset(preset, now) {
+        if (preset === 'all') {
+          return 0;
+        }
+
+        if (preset === 'custom') {
+          // Fetch from the chosen start day so ranges older than 30 days still load.
+          return customRange.start ? customRange.start.getTime() : 0;
+        }
+
+        return now.getTime() - DEFAULT_FETCH_DAYS * DAY_MS;
+      }
+
+      function updateActiveFilterWindow(now = new Date()) {
+        activeFilterNow = now;
+        activeFilterWindow = getFilterWindow(activePreset, activeFilterNow);
+      }
+
+      function filterRows(rows, filterWindow) {
+        if (!filterWindow.start && !filterWindow.end) {
+          return rows.slice();
+        }
+
+        return rows.filter((row) => {
+          const rowDate = parseRowDate(row);
+          if (!rowDate) {
+            return false;
+          }
+
+          if (filterWindow.start && rowDate < filterWindow.start) {
+            return false;
+          }
+
+          if (!filterWindow.end) {
+            return true;
+          }
+
+          if (filterWindow.inclusiveEnd) {
+            return rowDate <= filterWindow.end;
+          }
+
+          return rowDate < filterWindow.end;
+        });
+      }
+
+      function summarizeRows(rows) {
+        const summary = {
+          Rows: rows.length,
+          'Input (w/ Cache Write)': 0,
+          'Input (w/o Cache Write)': 0,
+          'Cache Read': 0,
+          'Output Tokens': 0,
+          'Total Tokens': 0,
+          Cost: 0,
+        };
+
+        for (const row of rows) {
+          for (const column of totalsColumns) {
+            if (column === 'Rows') {
+              continue;
+            }
+
+            const numericValue = toNumericValue(row?.[column]);
+            if (numericValue !== null) {
+              summary[column] += numericValue;
+            }
+          }
+        }
+
+        return summary;
+      }
+
+      function renderTotals(rows) {
+        const summary = summarizeRows(rows);
+        totalsBar.innerHTML = totalsColumns
+          .map((column) => {
+            const value = summary[column];
+            const formattedValue =
+              column === 'Rows'
+                ? escapeHtml(numberFormatter.format(value))
+                : formatCellValue(column, value);
+            return `<div class="total-card"><p class="total-label">${escapeHtml(
+              column
+            )}</p><p class="total-value">${formattedValue}</p></div>`;
+          })
+          .join('');
+      }
+
+      function updateDownloadLink() {
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        const url = new URL('/export.xlsx', window.location.origin);
+        url.searchParams.set('since', String(getSinceMsForPreset(activePreset, activeFilterNow)));
+        url.searchParams.set('preset', activePreset);
+        url.searchParams.set('timeZone', timeZone);
+        url.searchParams.set('tzOffsetMinutes', String(activeFilterNow.getTimezoneOffset()));
+        url.searchParams.set('now', activeFilterNow.toISOString());
+        url.searchParams.set('start', activeFilterWindow?.start ? activeFilterWindow.start.toISOString() : '');
+        url.searchParams.set('end', activeFilterWindow?.end ? activeFilterWindow.end.toISOString() : '');
+        url.searchParams.set('inclusiveEnd', String(Boolean(activeFilterWindow?.inclusiveEnd)));
+        if (activeSort.column && activeSort.direction) {
+          url.searchParams.set('sortBy', activeSort.column);
+          url.searchParams.set('sortDirection', activeSort.direction);
+        } else {
+          url.searchParams.delete('sortBy');
+          url.searchParams.delete('sortDirection');
+        }
+        downloadLink.href = url.pathname + url.search;
+      }
+
+      function renderPresetButtons() {
+        presetGroup.innerHTML = presetOptions
+          .map(
+            (option) =>
+              `<button class="preset-button" type="button" data-preset="${option.value}" aria-pressed="${
+                option.value === activePreset ? 'true' : 'false'
+              }">${option.label}</button>`
+          )
+          .join('');
+      }
+
+      function toIsoDay(date) {
+        return date
+          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+              date.getDate()
+            ).padStart(2, '0')}`
+          : '';
+      }
+
+      // Default calendar values: start = one month ago, end = today.
+      function setDefaultRangeInputs() {
+        const today = new Date();
+        const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+        startDateInput.value = toIsoDay(monthAgo);
+        endDateInput.value = toIsoDay(today);
+      }
+
+      // Keep the calendar bar in sync with the active range state.
+      function renderRangeBar() {
+        const isCustom = activePreset === 'custom';
+        applyRangeButton.setAttribute('aria-pressed', isCustom ? 'true' : 'false');
+        if (isCustom) {
+          startDateInput.value = toIsoDay(customRange.start);
+          endDateInput.value = toIsoDay(customRange.end);
+        }
+      }
+
+      function activeRangeLabel() {
+        if (activePreset !== 'custom') {
+          return `"${activePreset}"`;
+        }
+        return `${toIsoDay(customRange.start)} ~ ${toIsoDay(customRange.end)}`;
+      }
+
+      function renderRows(rows) {
+        if (!rows.length) {
+          tableBody.innerHTML = `<tr><td class="empty-state" colspan="${columns.length}">No rows match the current preset.</td></tr>`;
+          return;
+        }
+
+        tableBody.innerHTML = rows
+          .map((row) => {
+            const cells = columns
+              .map((column) => {
+                const value = row[column];
+                const text = formatCellValue(column, value);
+                return `<td>${text || '<span class="is-empty">-</span>'}</td>`;
+              })
+              .join('');
+            return `<tr>${cells}</tr>`;
+          })
+          .join('');
+      }
+
+      function renderTable() {
+        if (!activeFilterWindow) {
+          updateActiveFilterWindow();
+        }
+        const filteredRows = filterRows(allRows, activeFilterWindow);
+        const sortedRows = sortRows(filteredRows, activeSort);
+
+        const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pagedRows = sortedRows.slice(start, start + PAGE_SIZE);
+
+        renderHeader();
+        renderPresetButtons();
+        renderRangeBar();
+        renderTotals(sortedRows); // totals based on all visible (filtered+ sorted), not just page
+        renderRows(pagedRows);
+        renderPagination(sortedRows.length, totalPages);
+        updateDownloadLink();
+
+        const sortDescription =
+          activeSort.column && activeSort.direction ? ` Sorted by ${activeSort.column} (${activeSort.direction}).` : '';
+        const pageInfoText = sortedRows.length > PAGE_SIZE ? ` (page ${currentPage}/${totalPages})` : '';
+        statusEl.textContent = `${sortedRows.length} of ${allRows.length} row(s) shown for ${activeRangeLabel()}.${sortDescription}${pageInfoText}`;
+      }
+
+      function renderPagination(totalVisible, totalPages) {
+        const pagEl = document.getElementById('pagination');
+        const infoEl = document.getElementById('pageInfo');
+        const prevBtn = document.getElementById('prevPage');
+        const nextBtn = document.getElementById('nextPage');
+
+        if (!pagEl || !infoEl || !prevBtn || !nextBtn) return;
+
+        if (totalVisible <= PAGE_SIZE) {
+          pagEl.style.display = 'none';
+          return;
+        }
+
+        pagEl.style.display = 'flex';
+        infoEl.textContent = `Page ${currentPage} of ${totalPages} (${totalVisible.toLocaleString()} rows)`;
+
+        prevBtn.disabled = currentPage <= 1;
+        nextBtn.disabled = currentPage >= totalPages;
+
+        // Remove old listeners by cloning (simple way)
+        const newPrev = prevBtn.cloneNode(true);
+        const newNext = nextBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrev, prevBtn);
+        nextBtn.parentNode.replaceChild(newNext, nextBtn);
+
+        newPrev.addEventListener('click', () => {
+          if (currentPage > 1) {
+            currentPage--;
+            renderTable();
+          }
+        });
+
+        newNext.addEventListener('click', () => {
+          if (currentPage < totalPages) {
+            currentPage++;
+            renderTable();
+          }
+        });
+      }
+
+      function updateProgressUI(p) {
+        if (!p || !progressEl) return;
+
+        // Show as soon as we know the total (even during early 'idle' or right at 0%)
+        const show = p.total > 0;
+        progressEl.style.display = show ? '' : 'none';
+        progressEl.setAttribute('aria-hidden', show ? 'false' : 'true');
+
+        if (show) {
+          const pct = Math.max(0, Math.min(100, p.percent || 0));
+          progressFill.style.width = pct + '%';
+
+          const processedFmt = numberFormatter.format(p.processed || 0);
+          const totalFmt = numberFormatter.format(p.total || 0);
+
+          let label;
+          if (p.phase === 'parsing') {
+            label = `Parsing ${processedFmt} of ${totalFmt} files (${pct}%)`;
+          } else if (p.total > 0 && p.processed === 0) {
+            label = `Found ${totalFmt} files, starting parse...`;
+          } else {
+            label = `Scanning files...`;
+          }
+          progressText.textContent = label;
+        }
+      }
+
+      function startProgressPolling(sinceMs) {
+        stopProgressPolling();
+        progressActive = true;
+        const url = new URL('/api/progress', window.location.origin);
+        // Note: we no longer rely on 'since' for matching; server uses a single current tracker.
+        // We still send it for future-proofing / logging if needed.
+
+        const pollOnce = async () => {
+          try {
+            const res = await fetch(url.pathname + url.search, { cache: 'no-store' });
+            if (res.ok) {
+              const data = await res.json();
+              // Ignore late-resolving polls after polling stopped: the server keeps the
+              // tracker alive briefly post-completion, which would otherwise re-show the bar.
+              if (progressActive) {
+                updateProgressUI(data);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        };
+
+        // Immediate first check (don't wait for the first interval tick)
+        pollOnce();
+
+        progressPollId = setInterval(pollOnce, 380);
+      }
+
+      function stopProgressPolling() {
+        progressActive = false;
+        if (progressPollId) {
+          clearInterval(progressPollId);
+          progressPollId = null;
+        }
+        if (progressEl) {
+          progressEl.style.display = 'none';
+          progressEl.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      async function loadRows() {
+        updateActiveFilterWindow();
+        const sinceMs = getSinceMsForPreset(activePreset, activeFilterNow);
+        const previousLoaded = loadedSinceMs;
+
+        let loadingLabel;
+        if (sinceMs === 0) {
+          loadingLabel = 'Loading all rows (this may take a while)...';
+        } else if (activePreset === 'last30d' && previousLoaded !== null && sinceMs < previousLoaded) {
+          loadingLabel = 'Loading last 30 days (fetching more historical data)...';
+        } else if (activePreset === 'last30d') {
+          loadingLabel = 'Loading last 30 days data...';
+        } else {
+          loadingLabel = 'Loading rows...';
+        }
+
+        statusEl.textContent = loadingLabel;
+        statusEl.classList.remove('error');
+
+        // Visual cue that the current table may become stale during refetch
+        const tableWrap = document.querySelector('.table-wrap');
+        if (tableWrap && previousLoaded !== null && sinceMs < previousLoaded) {
+          tableWrap.style.opacity = '0.65';
+        }
+
+        startProgressPolling(sinceMs);
+
+        try {
+          const url = new URL('/api/raw', window.location.origin);
+          url.searchParams.set('since', String(sinceMs));
+          const response = await fetch(url.pathname + url.search, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`Request failed with ${response.status}`);
+          }
+
+          const rows = await response.json();
+          allRows = Array.isArray(rows) ? rows : [];
+          loadedSinceMs = sinceMs;
+          currentPage = 1; // reset pagination on new data
+          stopProgressPolling();
+
+          if (tableWrap) tableWrap.style.opacity = '';
+
+          renderTable();
+        } catch (error) {
+          stopProgressPolling();
+          if (tableWrap) tableWrap.style.opacity = '';
+          allRows = [];
+          loadedSinceMs = null;
+          tableBody.innerHTML = '';
+          renderTotals([]);
+          statusEl.textContent = `Failed to load rows: ${error.message}`;
+          statusEl.classList.add('error');
+        }
+      }
+
+      function needsRefetchForPreset(preset) {
+        if (loadedSinceMs === null) {
+          return true;
+        }
+
+        const requiredSince = getSinceMsForPreset(preset, activeFilterNow);
+        return requiredSince < loadedSinceMs;
+      }
+
+      presetGroup.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-preset]');
+        if (!button) {
+          return;
+        }
+
+        const nextPreset = button.dataset.preset;
+        if (nextPreset === activePreset) {
+          return;
+        }
+
+        activePreset = nextPreset;
+        customRange = { start: null, end: null }; // leaving custom mode
+        setDefaultRangeInputs();
+        updateActiveFilterWindow();
+        currentPage = 1; // always reset page when changing preset
+
+        if (needsRefetchForPreset(activePreset)) {
+          loadRows();
+        } else {
+          renderTable();
+        }
+      });
+
+      function applyCustomRange() {
+        const start = parseLocalDateInput(startDateInput.value);
+        const end = parseLocalDateInput(endDateInput.value);
+
+        if (!start || !end) {
+          statusEl.textContent = '시작 날짜와 종료 날짜를 모두 선택하세요.';
+          statusEl.classList.add('error');
+          return;
+        }
+
+        if (start > end) {
+          statusEl.textContent = '시작 날짜가 종료 날짜보다 늦을 수 없습니다.';
+          statusEl.classList.add('error');
+          return;
+        }
+
+        statusEl.classList.remove('error');
+        customRange = { start, end };
+        activePreset = 'custom';
+        currentPage = 1;
+        updateActiveFilterWindow();
+
+        if (needsRefetchForPreset('custom')) {
+          loadRows();
+        } else {
+          renderTable();
+        }
+      }
+
+      applyRangeButton.addEventListener('click', applyCustomRange);
+
+      clearRangeButton.addEventListener('click', () => {
+        setDefaultRangeInputs();
+        if (activePreset !== 'custom') {
+          return;
+        }
+        customRange = { start: null, end: null };
+        activePreset = 'last30d';
+        currentPage = 1;
+        updateActiveFilterWindow();
+        if (needsRefetchForPreset(activePreset)) {
+          loadRows();
+        } else {
+          renderTable();
+        }
+      });
+
+      headerRow.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-sort-column]');
+        if (!button) {
+          return;
+        }
+
+        const column = button.dataset.sortColumn;
+        if (activeSort.column !== column) {
+          activeSort = { column, direction: 'asc' };
+        } else if (activeSort.direction === 'asc') {
+          activeSort = { column, direction: 'desc' };
+        } else {
+          activeSort = { column: null, direction: null };
+        }
+
+        currentPage = 1; // reset page on sort change
+        renderTable();
+      });
+
+      refreshButton.addEventListener('click', loadRows);
+
+      renderHeader();
+      renderPresetButtons();
+      setDefaultRangeInputs();
+      updateActiveFilterWindow();
+      updateDownloadLink();
+      loadRows();
+    </script>
+  </body>
+</html>

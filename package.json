@@ -1,0 +1,14 @@
+{
+  "name": "claude-usage-export",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Claude usage dashboard with raw-row Excel export",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
