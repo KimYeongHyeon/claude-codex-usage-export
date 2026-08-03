@@ -210,7 +210,20 @@ function filterRows(rows, options = {}) {
   });
 }
 
+function filterRowsByProvider(rows, provider) {
+  if (provider === 'claude') {
+    return rows.filter((row) => row && row.Provider === 'Claude Code');
+  }
+
+  if (provider === 'codex') {
+    return rows.filter((row) => row && row.Provider === 'Codex');
+  }
+
+  return rows.slice();
+}
+
 module.exports = {
   filterRows,
+  filterRowsByProvider,
   getPresetRange,
 };

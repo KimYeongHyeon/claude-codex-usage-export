@@ -16,6 +16,7 @@ It is a local exporter, not a hosted analytics service. Conversation content is 
 ## What You Get
 
 - Claude Code and Codex rows in the same dashboard and `Raw` worksheet
+- A `Both` / `Claude Code` / `Codex` filter for separate dashboard views and exports
 - A `Provider` column that keeps both sources distinguishable
 - One-click `.xlsx` export plus a headless `curl` workflow
 - Today, yesterday, last 24 hours, 7 days, 30 days, all history, and custom ranges
@@ -78,6 +79,7 @@ The downloaded workbook contains one `Raw` worksheet. Dashboard filters and sort
 
 | Control | Behavior |
 | --- | --- |
+| `Both` / `Claude Code` / `Codex` | Shows and exports both providers or only the selected provider |
 | `Today` / `Yesterday` | Uses calendar-day boundaries in the browser's time zone |
 | `Last 24h` | Uses a rolling 24-hour window |
 | `Last 7d` / `Last 30d` | Uses rolling 7-day or 30-day windows |
@@ -134,6 +136,14 @@ curl --fail --output usage-since-date.xlsx \
 # Sort the complete export by total tokens, largest first
 curl --fail --output usage-by-tokens.xlsx \
   'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&sortBy=Total%20Tokens&sortDirection=desc'
+
+# Export only Codex usage
+curl --fail --output codex-usage.xlsx \
+  'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&provider=codex'
+
+# Export only Claude Code usage
+curl --fail --output claude-usage.xlsx \
+  'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&provider=claude'
 ```
 
 ### HTTP endpoints
@@ -151,6 +161,7 @@ Supported export parameters:
 | --- | --- | --- |
 | `since` | Unix milliseconds or ISO-8601 timestamp | Limits the source scan; defaults to 30 days ago |
 | `preset` | `today`, `yesterday`, `last24h`, `last7d`, `last30d`, `all` | Selects the export time window |
+| `provider` | `all`, `claude`, `codex` | Includes both providers or only the selected provider; defaults to `all` |
 | `start`, `end` | Unix milliseconds or ISO-8601 timestamps | Defines an explicit range when both are present |
 | `inclusiveEnd` | `true` or `false` | Controls whether an explicit end timestamp is included |
 | `timeZone` | IANA name such as `Asia/Seoul` | Applies calendar-day presets in a specific time zone |

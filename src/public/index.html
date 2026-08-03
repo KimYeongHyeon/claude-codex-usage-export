@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
     <title>Usage Export</title>
     <style>
       :root {
@@ -60,6 +61,24 @@
         gap: 8px;
       }
 
+      .provider-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .provider-button {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+
+      .filter-divider {
+        width: 1px;
+        height: 28px;
+        margin: 0 4px;
+        background: var(--border);
+      }
+
       .range-bar {
         display: flex;
         flex-wrap: wrap;
@@ -105,6 +124,12 @@
       }
 
       .preset-button[aria-pressed='true'] {
+        background: #dbeafe;
+        border-color: #93c5fd;
+        color: #1e3a8a;
+      }
+
+      .provider-button[aria-pressed='true'] {
         background: #dbeafe;
         border-color: #93c5fd;
         color: #1e3a8a;
@@ -231,6 +256,12 @@
         color: var(--muted);
       }
 
+      td:nth-child(1),
+      td:nth-child(2),
+      td:nth-child(7) {
+        white-space: nowrap;
+      }
+
       .error {
         color: #b91c1c;
       }
@@ -270,6 +301,12 @@
         padding: 6px 12px;
         font-size: 13px;
       }
+
+      @media (max-width: 600px) {
+        .filter-divider {
+          display: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -284,6 +321,9 @@
       </div>
 
       <div class="range-bar">
+        <span class="range-label">Provider</span>
+        <div id="providerGroup" class="provider-group" role="group" aria-label="Provider filter"></div>
+        <span class="filter-divider" aria-hidden="true"></span>
         <span class="range-label">기간 직접 선택</span>
         <input type="date" id="startDate" class="date-input" aria-label="시작 날짜" />
         <span class="range-sep" aria-hidden="true">~</span>
@@ -339,6 +379,7 @@
       const headerRow = document.getElementById('headerRow');
       const tableBody = document.getElementById('tableBody');
       const presetGroup = document.getElementById('presetGroup');
+      const providerGroup = document.getElementById('providerGroup');
       const refreshButton = document.getElementById('refreshButton');
       const downloadLink = document.getElementById('downloadLink');
       const totalsBar = document.getElementById('totalsBar');
@@ -356,6 +397,11 @@
         { value: 'last7d', label: 'Last 7d' },
         { value: 'last30d', label: 'Last 30d' },
         { value: 'all', label: 'All' },
+      ];
+      const providerOptions = [
+        { value: 'all', label: 'Both' },
+        { value: 'claude', label: 'Claude Code' },
+        { value: 'codex', label: 'Codex' },
       ];
       const DAY_MS = 24 * 60 * 60 * 1000;
       const DEFAULT_FETCH_DAYS = 30;
@@ -391,6 +437,7 @@
       });
       let allRows = [];
       let activePreset = 'last30d';
+      let activeProvider = 'all';
       let activeFilterNow = new Date();
       let loadedSinceMs = null;
       let activeFilterWindow = null;
@@ -679,6 +726,18 @@
         });
       }
 
+      function filterRowsByProvider(rows, provider) {
+        if (provider === 'claude') {
+          return rows.filter((row) => row?.Provider === 'Claude Code');
+        }
+
+        if (provider === 'codex') {
+          return rows.filter((row) => row?.Provider === 'Codex');
+        }
+
+        return rows.slice();
+      }
+
       function summarizeRows(rows) {
         const summary = {
           Rows: rows.length,
@@ -726,9 +785,11 @@
 
       function updateDownloadLink() {
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        const providerLabel = providerOptions.find((option) => option.value === activeProvider)?.label || 'Both';
         const url = resolveAppUrl('export.xlsx', window.location.href);
         url.searchParams.set('since', String(getSinceMsForPreset(activePreset, activeFilterNow)));
         url.searchParams.set('preset', activePreset);
+        url.searchParams.set('provider', activeProvider);
         url.searchParams.set('timeZone', timeZone);
         url.searchParams.set('tzOffsetMinutes', String(activeFilterNow.getTimezoneOffset()));
         url.searchParams.set('now', activeFilterNow.toISOString());
@@ -743,6 +804,7 @@
           url.searchParams.delete('sortDirection');
         }
         downloadLink.href = url.href;
+        downloadLink.textContent = `Download Excel · ${providerLabel}`;
       }
 
       function renderPresetButtons() {
@@ -751,6 +813,17 @@
             (option) =>
               `<button class="preset-button" type="button" data-preset="${option.value}" aria-pressed="${
                 option.value === activePreset ? 'true' : 'false'
+              }">${option.label}</button>`
+          )
+          .join('');
+      }
+
+      function renderProviderButtons() {
+        providerGroup.innerHTML = providerOptions
+          .map(
+            (option) =>
+              `<button class="provider-button" type="button" data-provider="${option.value}" aria-pressed="${
+                option.value === activeProvider ? 'true' : 'false'
               }">${option.label}</button>`
           )
           .join('');
@@ -791,7 +864,7 @@
 
       function renderRows(rows) {
         if (!rows.length) {
-          tableBody.innerHTML = `<tr><td class="empty-state" colspan="${columns.length}">No rows match the current preset.</td></tr>`;
+          tableBody.innerHTML = `<tr><td class="empty-state" colspan="${columns.length}">No rows match the current filters.</td></tr>`;
           return;
         }
 
@@ -813,7 +886,8 @@
         if (!activeFilterWindow) {
           updateActiveFilterWindow();
         }
-        const filteredRows = filterRows(allRows, activeFilterWindow);
+        const dateFilteredRows = filterRows(allRows, activeFilterWindow);
+        const filteredRows = filterRowsByProvider(dateFilteredRows, activeProvider);
         const sortedRows = sortRows(filteredRows, activeSort);
 
         const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
@@ -825,6 +899,7 @@
 
         renderHeader();
         renderPresetButtons();
+        renderProviderButtons();
         renderRangeBar();
         renderTotals(sortedRows); // totals based on all visible (filtered+ sorted), not just page
         renderRows(pagedRows);
@@ -834,7 +909,8 @@
         const sortDescription =
           activeSort.column && activeSort.direction ? ` Sorted by ${activeSort.column} (${activeSort.direction}).` : '';
         const pageInfoText = sortedRows.length > PAGE_SIZE ? ` (page ${currentPage}/${totalPages})` : '';
-        statusEl.textContent = `${sortedRows.length} of ${allRows.length} row(s) shown for ${activeRangeLabel()}.${sortDescription}${pageInfoText}`;
+        const providerLabel = providerOptions.find((option) => option.value === activeProvider)?.label || 'Both';
+        statusEl.textContent = `${sortedRows.length} of ${allRows.length} row(s) shown for ${activeRangeLabel()} · ${providerLabel}.${sortDescription}${pageInfoText}`;
       }
 
       function renderPagination(totalVisible, totalPages) {
@@ -1042,6 +1118,17 @@
         }
       });
 
+      providerGroup.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-provider]');
+        if (!button || button.dataset.provider === activeProvider) {
+          return;
+        }
+
+        activeProvider = button.dataset.provider;
+        currentPage = 1;
+        renderTable();
+      });
+
       function applyCustomRange() {
         const start = parseLocalDateInput(startDateInput.value);
         const end = parseLocalDateInput(endDateInput.value);
@@ -1112,6 +1199,7 @@
 
       renderHeader();
       renderPresetButtons();
+      renderProviderButtons();
       setDefaultRangeInputs();
       updateActiveFilterWindow();
       updateDownloadLink();
