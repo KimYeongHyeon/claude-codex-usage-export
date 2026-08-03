@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const http = require('node:http');
+const os = require('node:os');
 const path = require('node:path');
 
 const { filterRows } = require('./filter');
@@ -12,6 +13,8 @@ const { sortRows } = require('./sort');
 const { buildWorkbookBuffer } = require('./workbook');
 
 const INDEX_PATH = path.join(__dirname, 'public', 'index.html');
+const APP_URL_HELPER_PATH = path.join(__dirname, 'app-url.js');
+const APP_URL_HELPER_PLACEHOLDER = '/*__APP_URL_HELPER__*/';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_FETCH_DAYS = 30;
 
@@ -24,11 +27,14 @@ function sendJson(response, statusCode, payload) {
 }
 
 function sendHtml(response) {
+  const html = fs
+    .readFileSync(INDEX_PATH, 'utf8')
+    .replace(APP_URL_HELPER_PLACEHOLDER, fs.readFileSync(APP_URL_HELPER_PATH, 'utf8'));
   response.writeHead(200, {
     'Content-Type': 'text/html; charset=utf-8',
     'Cache-Control': 'no-store',
   });
-  response.end(fs.readFileSync(INDEX_PATH, 'utf8'));
+  response.end(html);
 }
 
 function sendWorkbook(response, workbookBuffer) {
@@ -338,8 +344,23 @@ function listenOnAvailablePort(server, options = {}) {
   });
 }
 
+function getStartupUrls(host, port) {
+  if (host === '0.0.0.0' || host === '::') {
+    const networkUrls = Object.values(os.networkInterfaces())
+      .flatMap((addresses) => addresses || [])
+      .filter((address) => address.family === 'IPv4' && !address.internal)
+      .map((address) => `http://${address.address}:${port}`);
+
+    return [...new Set([`http://127.0.0.1:${port}`, ...networkUrls])];
+  }
+
+  const displayHost = host === '::1' ? '[::1]' : host;
+  return [`http://${displayHost}:${port}`];
+}
+
 if (require.main === module) {
   const requestedPort = Number(process.env.PORT || 3456);
+  const host = process.env.HOST || '127.0.0.1';
   let activePricing = createDefaultPricingResolver();
   const getPricing = (...args) => activePricing(...args);
   const app = createApp({ getPricing });
@@ -348,13 +369,20 @@ if (require.main === module) {
   loadPersistentCache().catch(() => {});
   loadCodexPersistentCache().catch(() => {});
 
-  listenOnAvailablePort(app, { port: requestedPort })
+  listenOnAvailablePort(app, { host, port: requestedPort })
     .then((selectedPort) => {
       if (selectedPort !== requestedPort) {
         console.warn(`Port ${requestedPort} is already in use; switched to ${selectedPort}.`);
       }
       console.log('\nClaude + Codex Usage Export is ready.');
-      console.log(`Open: http://127.0.0.1:${selectedPort}`);
+      const startupUrls = getStartupUrls(host, selectedPort);
+      console.log(`Open: ${startupUrls[0]}`);
+      for (const networkUrl of startupUrls.slice(1)) {
+        console.log(`Network: ${networkUrl}`);
+      }
+      if (host === '0.0.0.0' || host === '::') {
+        console.warn('Network access is enabled. Use a firewall or trusted private network; no authentication is built in.');
+      }
       console.log('Press Ctrl+C to stop.\n');
 
       initializePricingResolver().then((state) => {
@@ -373,5 +401,6 @@ if (require.main === module) {
 
 module.exports = {
   createApp,
+  getStartupUrls,
   listenOnAvailablePort,
 };
