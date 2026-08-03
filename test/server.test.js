@@ -180,6 +180,36 @@ test('/api/raw merges Claude Code and Codex rows', async () => {
     const rows = await fetchRawRows(port, '?since=0');
     assert.deepEqual(rows.map((row) => row.Provider), ['Codex', 'Claude Code']);
     assert.equal(rows[0].Model, 'gpt-5.4-mini');
+
+    const claudeRows = await fetchWorkbookRows(
+      port,
+      '?since=0&preset=all&provider=claude'
+    );
+    assert.deepEqual(claudeRows.map((row) => row.Provider), ['Claude Code']);
+
+    const claudeResponse = await fetch(
+      `http://127.0.0.1:${port}/export.xlsx?since=0&preset=all&provider=claude`
+    );
+    assert.equal(
+      claudeResponse.headers.get('content-disposition'),
+      'attachment; filename="claude-code-usage.xlsx"'
+    );
+    await claudeResponse.arrayBuffer();
+
+    const codexRows = await fetchWorkbookRows(
+      port,
+      '?since=0&preset=all&provider=codex'
+    );
+    assert.deepEqual(codexRows.map((row) => row.Provider), ['Codex']);
+
+    const codexResponse = await fetch(
+      `http://127.0.0.1:${port}/export.xlsx?since=0&preset=all&provider=codex`
+    );
+    assert.equal(
+      codexResponse.headers.get('content-disposition'),
+      'attachment; filename="codex-usage.xlsx"'
+    );
+    await codexResponse.arrayBuffer();
   } finally {
     await close(app);
     fs.rmSync(codexHome, { recursive: true, force: true });

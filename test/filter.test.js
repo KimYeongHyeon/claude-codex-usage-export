@@ -1,7 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { filterRows } = require('../src/filter');
+const { filterRows, filterRowsByProvider } = require('../src/filter');
+
+test('filterRowsByProvider separates Claude Code and Codex rows', () => {
+  const rows = [
+    { Provider: 'Claude Code', id: 'claude' },
+    { Provider: 'Codex', id: 'codex' },
+  ];
+
+  assert.deepEqual(filterRowsByProvider(rows, 'claude').map((row) => row.id), ['claude']);
+  assert.deepEqual(filterRowsByProvider(rows, 'codex').map((row) => row.id), ['codex']);
+  assert.deepEqual(filterRowsByProvider(rows, 'all'), rows);
+  assert.deepEqual(filterRowsByProvider(rows, 'unknown'), rows);
+});
 
 test('filterRows returns all rows for all and unknown presets', () => {
   const rows = [
