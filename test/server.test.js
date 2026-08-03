@@ -97,6 +97,38 @@ test('/api/raw still returns all raw rows', async () => {
   }
 });
 
+test('/api/raw merges Claude Code and Codex rows', async () => {
+  const claudeDir = makeTempClaudeDir();
+  const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'codex usage 한글-'));
+  writeJsonl(path.join(claudeDir, 'projects', 'p1', 'claude.jsonl'), [
+    makeAssistantEntry('2026-08-03T01:00:00.000Z', 'claude-user', 100),
+  ]);
+  writeJsonl(path.join(codexHome, 'sessions', '2026', '08', 'codex.jsonl'), [
+    { type: 'session_meta', payload: { id: 'codex-session' } },
+    { type: 'turn_context', payload: { model: 'gpt-5.4-mini' } },
+    {
+      type: 'event_msg',
+      timestamp: '2026-08-03T02:00:00.000Z',
+      payload: {
+        type: 'token_count',
+        info: { last_token_usage: { input_tokens: 20, cached_input_tokens: 5, output_tokens: 3 } },
+      },
+    },
+  ]);
+
+  const app = createApp({ claudeDir, codexHome, includeCodex: true, getPricing });
+  const port = await listen(app);
+  try {
+    const rows = await fetchRawRows(port, '?since=0');
+    assert.deepEqual(rows.map((row) => row.Provider), ['Codex', 'Claude Code']);
+    assert.equal(rows[0].Model, 'gpt-5.4-mini');
+  } finally {
+    await close(app);
+    fs.rmSync(codexHome, { recursive: true, force: true });
+    fs.rmSync(claudeDir, { recursive: true, force: true });
+  }
+});
+
 test('/api/raw defaults to the last 30 days when since is omitted', async () => {
   const claudeDir = makeTempClaudeDir();
   const now = Date.now();

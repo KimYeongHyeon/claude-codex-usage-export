@@ -2,6 +2,7 @@ const XLSX = require('xlsx');
 
 const RAW_COLUMNS = [
   'Date',
+  'Provider',
   'User',
   'Cloud Agent ID',
   'Automation ID',

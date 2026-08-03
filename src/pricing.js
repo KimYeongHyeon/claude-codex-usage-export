@@ -10,6 +10,34 @@ const DEFAULT_MODEL_PRICING = {
   'haiku-3.5': { input: 0.8 / 1e6, output: 4 / 1e6, cacheWrite: 1 / 1e6, cacheRead: 0.08 / 1e6 },
 };
 
+// Standard API-equivalent prices. Codex sessions authenticated with ChatGPT are
+// subscription usage, so these rates are an estimate rather than a bill.
+const DEFAULT_OPENAI_MODEL_PRICING = {
+  'gpt-5.6-sol': { input: 5, cacheRead: 0.5, cacheWrite: 6.25, output: 30, long: { input: 10, cacheRead: 1, cacheWrite: 12.5, output: 45 } },
+  'gpt-5.6-terra': { input: 2, cacheRead: 0.2, cacheWrite: 2.5, output: 12, long: { input: 4, cacheRead: 0.4, cacheWrite: 5, output: 18 } },
+  'gpt-5.6-luna': { input: 0.2, cacheRead: 0.02, cacheWrite: 0.25, output: 1.2, long: { input: 0.4, cacheRead: 0.04, cacheWrite: 0.5, output: 1.8 } },
+  'gpt-5.5': { input: 5, cacheRead: 0.5, cacheWrite: 5, output: 30, long: { input: 10, cacheRead: 1, cacheWrite: 10, output: 45 } },
+  'gpt-5.4': { input: 2.5, cacheRead: 0.25, cacheWrite: 2.5, output: 15, long: { input: 5, cacheRead: 0.5, cacheWrite: 5, output: 22.5 } },
+  'gpt-5.4-mini': { input: 0.75, cacheRead: 0.075, cacheWrite: 0.75, output: 4.5 },
+  'gpt-5.3-codex': { input: 1.75, cacheRead: 0.175, cacheWrite: 1.75, output: 14 },
+  'gpt-5.2-codex': { input: 1.75, cacheRead: 0.175, cacheWrite: 1.75, output: 14 },
+  'gpt-5.1-codex-max': { input: 1.25, cacheRead: 0.125, cacheWrite: 1.25, output: 10 },
+  'gpt-5.1-codex-mini': { input: 0.25, cacheRead: 0.025, cacheWrite: 0.25, output: 2 },
+  'o3-mini': { input: 1.1, cacheRead: 0.55, cacheWrite: 1.1, output: 4.4 },
+  'o4-mini': { input: 1.1, cacheRead: 0.275, cacheWrite: 1.1, output: 4.4 },
+};
+
+function resolveOpenAIPricing(modelName, usage = {}) {
+  const model = String(modelName || '').toLowerCase();
+  if (model === 'gpt-5.3-codex-spark') return null;
+  const base = DEFAULT_OPENAI_MODEL_PRICING[model];
+  if (!base) return null;
+  const selected = base.long && Number(usage.inputTokens) > 272000 ? base.long : base;
+  return Object.fromEntries(
+    ['input', 'cacheRead', 'cacheWrite', 'output'].map((field) => [field, selected[field] / 1e6])
+  );
+}
+
 const DEFAULT_CATEGORY_MODEL_IDS = {
   'opus-4.8': ['anthropic.claude-opus-4-8', 'global.anthropic.claude-opus-4-8'],
   'opus-4.7': ['anthropic.claude-opus-4-7', 'global.anthropic.claude-opus-4-7'],
@@ -30,7 +58,16 @@ let pricingState = null;
 let pricingInitializationPromise = null;
 
 function createDefaultPricingResolver() {
-  return buildCategoryPricingResolver(DEFAULT_MODEL_PRICING);
+  return buildProviderPricingResolver(buildCategoryPricingResolver(DEFAULT_MODEL_PRICING));
+}
+
+function buildProviderPricingResolver(claudeResolver) {
+  return function getPricing(modelName, provider, usage) {
+    if (String(provider || '').toLowerCase() === 'codex') {
+      return resolveOpenAIPricing(modelName, usage);
+    }
+    return claudeResolver(modelName);
+  };
 }
 
 function normalizeModelPricingEntry(entry) {
@@ -134,7 +171,7 @@ async function initializePricingResolver() {
         pricingState = {
           source: 'litellm',
           categoryPricingMap,
-          getPricing: buildCategoryPricingResolver(categoryPricingMap),
+          getPricing: buildProviderPricingResolver(buildCategoryPricingResolver(categoryPricingMap)),
         };
         console.log('Initialized pricing from LiteLLM.');
         return pricingState;
@@ -160,6 +197,8 @@ async function initializePricingResolver() {
 
 module.exports = {
   DEFAULT_MODEL_PRICING,
+  DEFAULT_OPENAI_MODEL_PRICING,
   createDefaultPricingResolver,
   initializePricingResolver,
+  resolveOpenAIPricing,
 };

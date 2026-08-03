@@ -2,13 +2,16 @@
   "name": "claude-usage-export",
   "version": "0.1.0",
   "private": true,
-  "description": "Local Claude usage dashboard with raw-row Excel export",
+  "description": "Local Claude Code and Codex usage dashboard with Excel export",
+  "engines": {
+    "node": ">=18"
+  },
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test"
   },
   "dependencies": {
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

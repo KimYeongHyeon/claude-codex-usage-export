@@ -45,3 +45,25 @@ test('a future opus version defaults to the modern $5/$25 tier', () => {
   assert.equal(pricing.input * PER_MTOK, 5);
   assert.equal(pricing.output * PER_MTOK, 25);
 });
+
+test('Codex models use provider-specific standard API-equivalent pricing', () => {
+  const getPricing = createDefaultPricingResolver();
+  const pricing = getPricing('gpt-5.4', 'Codex', { inputTokens: 1000 });
+  assert.equal(pricing.input * PER_MTOK, 2.5);
+  assert.equal(pricing.cacheRead * PER_MTOK, 0.25);
+  assert.equal(pricing.output * PER_MTOK, 15);
+});
+
+test('Codex long-context rates use raw input token count', () => {
+  const getPricing = createDefaultPricingResolver();
+  const pricing = getPricing('gpt-5.6-sol', 'Codex', { inputTokens: 272001 });
+  assert.equal(pricing.input * PER_MTOK, 10);
+  assert.equal(pricing.cacheWrite * PER_MTOK, 12.5);
+  assert.equal(pricing.output * PER_MTOK, 45);
+});
+
+test('unpriced and unknown Codex models never fall through to Sonnet', () => {
+  const getPricing = createDefaultPricingResolver();
+  assert.equal(getPricing('gpt-5.3-codex-spark', 'Codex'), null);
+  assert.equal(getPricing('future-openai-model', 'Codex'), null);
+});
