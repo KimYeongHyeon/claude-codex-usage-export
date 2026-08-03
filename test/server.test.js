@@ -178,17 +178,17 @@ test('/api/raw merges Claude Code and Codex rows', async () => {
   const port = await listen(app);
   try {
     const rows = await fetchRawRows(port, '?since=0');
-    assert.deepEqual(rows.map((row) => row.Provider), ['Codex', 'Claude Code']);
+    assert.deepEqual(rows.map((row) => row.Source), ['Codex', 'Claude Code']);
     assert.equal(rows[0].Model, 'gpt-5.4-mini');
 
     const claudeRows = await fetchWorkbookRows(
       port,
-      '?since=0&preset=all&provider=claude'
+      '?since=0&preset=all&source=claude'
     );
-    assert.deepEqual(claudeRows.map((row) => row.Provider), ['Claude Code']);
+    assert.deepEqual(claudeRows.map((row) => row.Source), ['Claude Code']);
 
     const claudeResponse = await fetch(
-      `http://127.0.0.1:${port}/export.xlsx?since=0&preset=all&provider=claude`
+      `http://127.0.0.1:${port}/export.xlsx?since=0&preset=all&source=claude`
     );
     assert.equal(
       claudeResponse.headers.get('content-disposition'),
@@ -200,7 +200,7 @@ test('/api/raw merges Claude Code and Codex rows', async () => {
       port,
       '?since=0&preset=all&provider=codex'
     );
-    assert.deepEqual(codexRows.map((row) => row.Provider), ['Codex']);
+    assert.deepEqual(codexRows.map((row) => row.Source), ['Codex']);
 
     const codexResponse = await fetch(
       `http://127.0.0.1:${port}/export.xlsx?since=0&preset=all&provider=codex`
@@ -420,7 +420,7 @@ test('/export.xlsx applies preset filtering', async () => {
     );
     assert.equal(
       exportResponse.headers.get('content-disposition'),
-      'attachment; filename="claude-usage-raw.xlsx"'
+      'attachment; filename="claude-codex-usage.xlsx"'
     );
 
     const sheetRows = await readWorkbookRows(exportResponse);

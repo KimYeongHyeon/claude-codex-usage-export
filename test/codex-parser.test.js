@@ -97,7 +97,7 @@ test('collectCodexRawRows maps each last_token_usage event without using cumulat
     'Cloud Agent ID': '',
     'Automation ID': '',
     Kind: 'Included',
-    Provider: 'Codex',
+    Source: 'Codex',
     Model: 'gpt-5-codex',
     'Max Mode': 'No',
     'Input (w/ Cache Write)': 0,

@@ -5,7 +5,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 
-const { filterRows, filterRowsByProvider } = require('./filter');
+const { filterRows, filterRowsBySource } = require('./filter');
 const { DEFAULT_CLAUDE_DIR, collectRawRows, createProgressTracker } = require('./parser');
 const { collectCodexRawRows, loadPersistentCache: loadCodexPersistentCache } = require('./codex-parser');
 const { createDefaultPricingResolver, initializePricingResolver } = require('./pricing');
@@ -48,10 +48,10 @@ function sendWorkbook(response, workbookBuffer, filename) {
   response.end(workbookBuffer);
 }
 
-function getExportFilename(provider) {
-  if (provider === 'claude') return 'claude-code-usage.xlsx';
-  if (provider === 'codex') return 'codex-usage.xlsx';
-  return 'claude-usage-raw.xlsx';
+function getExportFilename(source) {
+  if (source === 'claude') return 'claude-code-usage.xlsx';
+  if (source === 'codex') return 'codex-usage.xlsx';
+  return 'claude-codex-usage.xlsx';
 }
 
 function parseTimestampQueryParam(value) {
@@ -261,21 +261,21 @@ function createApp(options = {}) {
 
       if (request.method === 'GET' && url.pathname === '/export.xlsx') {
         const since = resolveSinceMs(url.searchParams);
-        const provider = url.searchParams.get('provider');
+        const source = url.searchParams.get('source') || url.searchParams.get('provider');
         const rows = await collectAllRows({ since });
         const explicitRange = parseExplicitExportRange(url.searchParams);
         const filteredRows = explicitRange
           ? filterRowsByExplicitRange(rows, explicitRange)
           : filterRows(rows, parseExportFilterOptions(url.searchParams));
-        const providerRows = filterRowsByProvider(
+        const sourceRows = filterRowsBySource(
           filteredRows,
-          provider
+          source
         );
-        const sortedRows = sortRows(providerRows, parseExportSortOptions(url.searchParams));
+        const sortedRows = sortRows(sourceRows, parseExportSortOptions(url.searchParams));
         sendWorkbook(
           response,
           buildWorkbookBuffer(sortedRows),
-          getExportFilename(provider)
+          getExportFilename(source)
         );
         return;
       }
