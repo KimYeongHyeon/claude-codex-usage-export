@@ -1,11 +1,11 @@
 const RAW_SORT_COLUMNS = [
   'Date',
-  'Provider',
+  'Source',
+  'Model',
   'User',
   'Cloud Agent ID',
   'Automation ID',
   'Kind',
-  'Model',
   'Max Mode',
   'Input (w/ Cache Write)',
   'Input (w/o Cache Write)',

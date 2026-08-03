@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="data:," />
-    <title>Usage Export</title>
+    <title>Claude + Codex Usage Export</title>
     <style>
       :root {
         color-scheme: light;
@@ -61,13 +61,13 @@
         gap: 8px;
       }
 
-      .provider-group {
+      .source-group {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
       }
 
-      .provider-button {
+      .source-button {
         padding: 8px 12px;
         font-size: 13px;
       }
@@ -114,7 +114,13 @@
       .range-clear {
         padding: 8px 12px;
         font-size: 13px;
-        color: var(--muted);
+        color: var(--text);
+      }
+
+      .date-pair {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       #applyRange[aria-pressed='true'] {
@@ -129,7 +135,7 @@
         color: #1e3a8a;
       }
 
-      .provider-button[aria-pressed='true'] {
+      .source-button[aria-pressed='true'] {
         background: #dbeafe;
         border-color: #93c5fd;
         color: #1e3a8a;
@@ -192,6 +198,12 @@
         border: 1px solid var(--border);
         border-radius: 12px;
         background: var(--panel);
+      }
+
+      .table-scroll-hint {
+        margin: 10px 0 6px;
+        color: var(--muted);
+        font-size: 12px;
       }
 
       table {
@@ -306,13 +318,24 @@
         .filter-divider {
           display: none;
         }
+
+        .date-pair {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+          width: 100%;
+        }
+
+        .date-pair .date-input {
+          min-width: 0;
+          width: 100%;
+        }
       }
     </style>
   </head>
   <body>
     <main class="page">
       <div class="toolbar">
-        <h1 class="title">Usage Export</h1>
+        <h1 class="title">Claude + Codex Usage Export</h1>
         <div class="actions">
           <div id="presetGroup" class="preset-group" aria-label="Date presets"></div>
           <button id="refreshButton" type="button">Refresh</button>
@@ -321,15 +344,17 @@
       </div>
 
       <div class="range-bar">
-        <span class="range-label">Provider</span>
-        <div id="providerGroup" class="provider-group" role="group" aria-label="Provider filter"></div>
+        <span class="range-label">Source</span>
+        <div id="sourceGroup" class="source-group" role="group" aria-label="Source filter"></div>
         <span class="filter-divider" aria-hidden="true"></span>
-        <span class="range-label">기간 직접 선택</span>
-        <input type="date" id="startDate" class="date-input" aria-label="시작 날짜" />
-        <span class="range-sep" aria-hidden="true">~</span>
-        <input type="date" id="endDate" class="date-input" aria-label="종료 날짜" />
-        <button id="applyRange" type="button">적용</button>
-        <button id="clearRange" type="button" class="range-clear" title="기간 선택 해제">초기화</button>
+        <span class="range-label">Custom range</span>
+        <div class="date-pair">
+          <input type="date" id="startDate" class="date-input" aria-label="Start date" />
+          <span class="range-sep" aria-hidden="true">~</span>
+          <input type="date" id="endDate" class="date-input" aria-label="End date" />
+        </div>
+        <button id="applyRange" type="button">Apply</button>
+        <button id="clearRange" type="button" class="range-clear" title="Reset custom range">Reset</button>
       </div>
 
       <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Loading rows...</p>
@@ -339,8 +364,9 @@
       </div>
       <section id="totalsBar" class="totals-bar" aria-label="Filtered totals"></section>
 
+      <p id="tableScrollHint" class="table-scroll-hint">Scroll horizontally to view all token and cost columns →</p>
       <div class="table-wrap">
-        <table aria-describedby="status">
+        <table aria-describedby="status tableScrollHint">
           <thead>
             <tr id="headerRow"></tr>
           </thead>
@@ -360,12 +386,12 @@
     <script>
       const columns = [
         'Date',
-        'Provider',
+        'Source',
+        'Model',
         'User',
         'Cloud Agent ID',
         'Automation ID',
         'Kind',
-        'Model',
         'Max Mode',
         'Input (w/ Cache Write)',
         'Input (w/o Cache Write)',
@@ -374,12 +400,15 @@
         'Total Tokens',
         'Cost',
       ];
+      const columnLabels = {
+        Cost: 'Est. API Cost (USD)',
+      };
 
       const statusEl = document.getElementById('status');
       const headerRow = document.getElementById('headerRow');
       const tableBody = document.getElementById('tableBody');
       const presetGroup = document.getElementById('presetGroup');
-      const providerGroup = document.getElementById('providerGroup');
+      const sourceGroup = document.getElementById('sourceGroup');
       const refreshButton = document.getElementById('refreshButton');
       const downloadLink = document.getElementById('downloadLink');
       const totalsBar = document.getElementById('totalsBar');
@@ -398,7 +427,7 @@
         { value: 'last30d', label: 'Last 30d' },
         { value: 'all', label: 'All' },
       ];
-      const providerOptions = [
+      const sourceOptions = [
         { value: 'all', label: 'Both' },
         { value: 'claude', label: 'Claude Code' },
         { value: 'codex', label: 'Codex' },
@@ -437,7 +466,7 @@
       });
       let allRows = [];
       let activePreset = 'last30d';
-      let activeProvider = 'all';
+      let activeSource = 'all';
       let activeFilterNow = new Date();
       let loadedSinceMs = null;
       let activeFilterWindow = null;
@@ -464,10 +493,11 @@
                 : 'descending'
               : 'none';
             const indicator = isActive ? (activeSort.direction === 'asc' ? '▲' : '▼') : '⇅';
+            const label = columnLabels[column] || column;
             return `<th scope="col" aria-sort="${ariaSort}"><button class="sort-button" type="button" data-sort-column="${escapeHtml(
               column
-            )}" aria-label="Sort by ${escapeHtml(column)}. Current sort: ${ariaSort}.">${escapeHtml(
-              column
+            )}" aria-label="Sort by ${escapeHtml(label)}. Current sort: ${ariaSort}.">${escapeHtml(
+              label
             )}<span class="sort-indicator" aria-hidden="true">${indicator}</span></button></th>`;
           })
           .join('');
@@ -726,13 +756,13 @@
         });
       }
 
-      function filterRowsByProvider(rows, provider) {
-        if (provider === 'claude') {
-          return rows.filter((row) => row?.Provider === 'Claude Code');
+      function filterRowsBySource(rows, source) {
+        if (source === 'claude') {
+          return rows.filter((row) => row?.Source === 'Claude Code');
         }
 
-        if (provider === 'codex') {
-          return rows.filter((row) => row?.Provider === 'Codex');
+        if (source === 'codex') {
+          return rows.filter((row) => row?.Source === 'Codex');
         }
 
         return rows.slice();
@@ -770,12 +800,13 @@
         totalsBar.innerHTML = totalsColumns
           .map((column) => {
             const value = summary[column];
+            const label = columnLabels[column] || column;
             const formattedValue =
               column === 'Rows'
                 ? escapeHtml(numberFormatter.format(value))
                 : formatCellValue(column, value);
             return `<div class="total-card"><p class="total-label">${escapeHtml(
-              column
+              label
             )}</p><p class="total-value">${formattedValue}</p></div>`;
           })
           .join('');
@@ -785,11 +816,11 @@
 
       function updateDownloadLink() {
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-        const providerLabel = providerOptions.find((option) => option.value === activeProvider)?.label || 'Both';
+        const sourceLabel = sourceOptions.find((option) => option.value === activeSource)?.label || 'Both';
         const url = resolveAppUrl('export.xlsx', window.location.href);
         url.searchParams.set('since', String(getSinceMsForPreset(activePreset, activeFilterNow)));
         url.searchParams.set('preset', activePreset);
-        url.searchParams.set('provider', activeProvider);
+        url.searchParams.set('source', activeSource);
         url.searchParams.set('timeZone', timeZone);
         url.searchParams.set('tzOffsetMinutes', String(activeFilterNow.getTimezoneOffset()));
         url.searchParams.set('now', activeFilterNow.toISOString());
@@ -804,7 +835,7 @@
           url.searchParams.delete('sortDirection');
         }
         downloadLink.href = url.href;
-        downloadLink.textContent = `Download Excel · ${providerLabel}`;
+        downloadLink.textContent = `Download Excel · ${sourceLabel}`;
       }
 
       function renderPresetButtons() {
@@ -818,12 +849,12 @@
           .join('');
       }
 
-      function renderProviderButtons() {
-        providerGroup.innerHTML = providerOptions
+      function renderSourceButtons() {
+        sourceGroup.innerHTML = sourceOptions
           .map(
             (option) =>
-              `<button class="provider-button" type="button" data-provider="${option.value}" aria-pressed="${
-                option.value === activeProvider ? 'true' : 'false'
+              `<button class="source-button" type="button" data-source="${option.value}" aria-pressed="${
+                option.value === activeSource ? 'true' : 'false'
               }">${option.label}</button>`
           )
           .join('');
@@ -857,7 +888,7 @@
 
       function activeRangeLabel() {
         if (activePreset !== 'custom') {
-          return `"${activePreset}"`;
+          return presetOptions.find((option) => option.value === activePreset)?.label || activePreset;
         }
         return `${toIsoDay(customRange.start)} ~ ${toIsoDay(customRange.end)}`;
       }
@@ -887,7 +918,7 @@
           updateActiveFilterWindow();
         }
         const dateFilteredRows = filterRows(allRows, activeFilterWindow);
-        const filteredRows = filterRowsByProvider(dateFilteredRows, activeProvider);
+        const filteredRows = filterRowsBySource(dateFilteredRows, activeSource);
         const sortedRows = sortRows(filteredRows, activeSort);
 
         const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
@@ -899,7 +930,7 @@
 
         renderHeader();
         renderPresetButtons();
-        renderProviderButtons();
+        renderSourceButtons();
         renderRangeBar();
         renderTotals(sortedRows); // totals based on all visible (filtered+ sorted), not just page
         renderRows(pagedRows);
@@ -909,8 +940,9 @@
         const sortDescription =
           activeSort.column && activeSort.direction ? ` Sorted by ${activeSort.column} (${activeSort.direction}).` : '';
         const pageInfoText = sortedRows.length > PAGE_SIZE ? ` (page ${currentPage}/${totalPages})` : '';
-        const providerLabel = providerOptions.find((option) => option.value === activeProvider)?.label || 'Both';
-        statusEl.textContent = `${sortedRows.length} of ${allRows.length} row(s) shown for ${activeRangeLabel()} · ${providerLabel}.${sortDescription}${pageInfoText}`;
+        const sourceLabel = sourceOptions.find((option) => option.value === activeSource)?.label || 'Both';
+        const rowLabel = allRows.length === 1 ? 'row' : 'rows';
+        statusEl.textContent = `${sortedRows.length} of ${allRows.length} ${rowLabel} shown for ${activeRangeLabel()} · ${sourceLabel}.${sortDescription}${pageInfoText}`;
       }
 
       function renderPagination(totalVisible, totalPages) {
@@ -1118,13 +1150,13 @@
         }
       });
 
-      providerGroup.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-provider]');
-        if (!button || button.dataset.provider === activeProvider) {
+      sourceGroup.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-source]');
+        if (!button || button.dataset.source === activeSource) {
           return;
         }
 
-        activeProvider = button.dataset.provider;
+        activeSource = button.dataset.source;
         currentPage = 1;
         renderTable();
       });
@@ -1199,7 +1231,7 @@
 
       renderHeader();
       renderPresetButtons();
-      renderProviderButtons();
+      renderSourceButtons();
       setDefaultRangeInputs();
       updateActiveFilterWindow();
       updateDownloadLink();

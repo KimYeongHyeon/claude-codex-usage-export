@@ -210,13 +210,13 @@ function filterRows(rows, options = {}) {
   });
 }
 
-function filterRowsByProvider(rows, provider) {
-  if (provider === 'claude') {
-    return rows.filter((row) => row && row.Provider === 'Claude Code');
+function filterRowsBySource(rows, source) {
+  if (source === 'claude') {
+    return rows.filter((row) => row && row.Source === 'Claude Code');
   }
 
-  if (provider === 'codex') {
-    return rows.filter((row) => row && row.Provider === 'Codex');
+  if (source === 'codex') {
+    return rows.filter((row) => row && row.Source === 'Codex');
   }
 
   return rows.slice();
@@ -224,6 +224,6 @@ function filterRowsByProvider(rows, provider) {
 
 module.exports = {
   filterRows,
-  filterRowsByProvider,
+  filterRowsBySource,
   getPresetRange,
 };

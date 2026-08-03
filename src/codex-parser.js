@@ -93,7 +93,7 @@ function mapCandidateToRow(candidate, user, getPricing) {
 
   return {
     Date: candidate.timestamp,
-    Provider: 'Codex',
+    Source: 'Codex',
     User: user,
     'Cloud Agent ID': '',
     'Automation ID': '',

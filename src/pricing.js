@@ -1,4 +1,7 @@
 const DEFAULT_MODEL_PRICING = {
+  // Anthropic promotional Claude Sonnet 5 rates, effective through 2026-08-31.
+  'sonnet-5': { input: 2 / 1e6, output: 10 / 1e6, cacheWrite: 2.5 / 1e6, cacheRead: 0.2 / 1e6 },
+  'fable-5': { input: 10 / 1e6, output: 50 / 1e6, cacheWrite: 12.5 / 1e6, cacheRead: 1 / 1e6 },
   'opus-4.8': { input: 5 / 1e6, output: 25 / 1e6, cacheWrite: 6.25 / 1e6, cacheRead: 0.5 / 1e6 },
   'opus-4.7': { input: 5 / 1e6, output: 25 / 1e6, cacheWrite: 6.25 / 1e6, cacheRead: 0.5 / 1e6 },
   'opus-4.6': { input: 5 / 1e6, output: 25 / 1e6, cacheWrite: 6.25 / 1e6, cacheRead: 0.5 / 1e6 },
@@ -27,8 +30,17 @@ const DEFAULT_OPENAI_MODEL_PRICING = {
   'o4-mini': { input: 1.1, cacheRead: 0.275, cacheWrite: 1.1, output: 4.4 },
 };
 
+const OPENAI_MODEL_ALIASES = {
+  'gpt-5.6': 'gpt-5.6-sol',
+};
+
 function resolveOpenAIPricing(modelName, usage = {}) {
-  const model = String(modelName || '').toLowerCase();
+  const normalizedModel = String(modelName || '').toLowerCase();
+  const modelMatch = normalizedModel.match(
+    /(?:^|[/.:-])((?:gpt-[a-z0-9._-]+)|(?:o\d(?:-[a-z0-9._-]+)?))$/
+  );
+  const detectedModel = modelMatch ? modelMatch[1] : normalizedModel;
+  const model = OPENAI_MODEL_ALIASES[detectedModel] || detectedModel;
   if (model === 'gpt-5.3-codex-spark') return null;
   const base = DEFAULT_OPENAI_MODEL_PRICING[model];
   if (!base) return null;
@@ -39,6 +51,8 @@ function resolveOpenAIPricing(modelName, usage = {}) {
 }
 
 const DEFAULT_CATEGORY_MODEL_IDS = {
+  'sonnet-5': ['anthropic.claude-sonnet-5', 'global.anthropic.claude-sonnet-5'],
+  'fable-5': ['anthropic.claude-fable-5', 'global.anthropic.claude-fable-5'],
   'opus-4.8': ['anthropic.claude-opus-4-8', 'global.anthropic.claude-opus-4-8'],
   'opus-4.7': ['anthropic.claude-opus-4-7', 'global.anthropic.claude-opus-4-7'],
   'opus-4.6': ['anthropic.claude-opus-4-6-v1', 'global.anthropic.claude-opus-4-6-v1'],
@@ -58,15 +72,21 @@ let pricingState = null;
 let pricingInitializationPromise = null;
 
 function createDefaultPricingResolver() {
-  return buildProviderPricingResolver(buildCategoryPricingResolver(DEFAULT_MODEL_PRICING));
+  return buildModelPricingResolver(buildCategoryPricingResolver(DEFAULT_MODEL_PRICING));
 }
 
-function buildProviderPricingResolver(claudeResolver) {
-  return function getPricing(modelName, provider, usage) {
-    if (String(provider || '').toLowerCase() === 'codex') {
+function buildModelPricingResolver(claudeResolver) {
+  return function getPricing(modelName, source, usage) {
+    const normalizedModel = String(modelName || '').toLowerCase();
+    const isOpenAIModel = /(^|[/.:-])gpt-/.test(normalizedModel) ||
+      /(^|[/.:-])o\d(?:-|$)/.test(normalizedModel);
+    if (isOpenAIModel) {
       return resolveOpenAIPricing(modelName, usage);
     }
-    return claudeResolver(modelName);
+
+    const isAnthropicModel = /(^|[/.:-])(opus|sonnet|haiku|fable)(?:-|$)/.test(normalizedModel) ||
+      /claude-(?:opus|sonnet|haiku|fable)(?:-|$)/.test(normalizedModel);
+    return isAnthropicModel ? claudeResolver(modelName) : null;
   };
 }
 
@@ -100,8 +120,6 @@ function buildCategoryPricingMap(modelMap) {
 }
 
 function buildCategoryPricingResolver(categoryPricingMap) {
-  const defaultPricing = categoryPricingMap.sonnet || DEFAULT_MODEL_PRICING.sonnet;
-
   return function getPricing(modelName) {
     const model = String(modelName || '').toLowerCase();
 
@@ -115,30 +133,43 @@ function buildCategoryPricingResolver(categoryPricingMap) {
         model.includes('opus-4-0') ||
         model.includes('opus-4.0');
       if (isLegacyOpus) {
-        return categoryPricingMap['opus-4.1'] || defaultPricing;
+        return categoryPricingMap['opus-4.1'] || DEFAULT_MODEL_PRICING['opus-4.1'];
       }
 
       if (model.includes('4-8') || model.includes('4.8')) {
-        return categoryPricingMap['opus-4.8'] || categoryPricingMap['opus-4.6'] || defaultPricing;
+        return categoryPricingMap['opus-4.8'] || categoryPricingMap['opus-4.6'] || DEFAULT_MODEL_PRICING['opus-4.6'];
       }
       if (model.includes('4-7') || model.includes('4.7')) {
-        return categoryPricingMap['opus-4.7'] || categoryPricingMap['opus-4.6'] || defaultPricing;
+        return categoryPricingMap['opus-4.7'] || categoryPricingMap['opus-4.6'] || DEFAULT_MODEL_PRICING['opus-4.6'];
       }
       if (model.includes('4-5') || model.includes('4.5')) {
-        return categoryPricingMap['opus-4.5'] || defaultPricing;
+        return categoryPricingMap['opus-4.5'] || DEFAULT_MODEL_PRICING['opus-4.5'];
       }
       // Default to the modern Opus tier ($5/$25) for 4.6 and any newer version.
-      return categoryPricingMap['opus-4.6'] || defaultPricing;
+      return categoryPricingMap['opus-4.6'] || DEFAULT_MODEL_PRICING['opus-4.6'];
+    }
+
+    if (model.includes('fable')) {
+      return /fable[-.]5(?:-|$)/.test(model)
+        ? categoryPricingMap['fable-5'] || DEFAULT_MODEL_PRICING['fable-5']
+        : null;
+    }
+
+    if (model.includes('sonnet')) {
+      if (/sonnet[-.]5(?:-|$)/.test(model)) {
+        return categoryPricingMap['sonnet-5'] || DEFAULT_MODEL_PRICING['sonnet-5'];
+      }
+      return categoryPricingMap.sonnet || DEFAULT_MODEL_PRICING.sonnet;
     }
 
     if (model.includes('haiku')) {
       if (model.includes('4-5') || model.includes('4.5')) {
-        return categoryPricingMap['haiku-4.5'] || defaultPricing;
+        return categoryPricingMap['haiku-4.5'] || DEFAULT_MODEL_PRICING['haiku-4.5'];
       }
-      return categoryPricingMap['haiku-3.5'] || defaultPricing;
+      return categoryPricingMap['haiku-3.5'] || DEFAULT_MODEL_PRICING['haiku-3.5'];
     }
 
-    return categoryPricingMap.sonnet || defaultPricing;
+    return null;
   };
 }
 
@@ -147,7 +178,7 @@ async function fetchLiteLLMCategoryPricingMap() {
     signal: AbortSignal.timeout(5000),
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'claude-usage-export/0.1.0',
+      'User-Agent': 'claude-codex-usage-export/0.1.0',
     },
   });
 
@@ -171,7 +202,7 @@ async function initializePricingResolver() {
         pricingState = {
           source: 'litellm',
           categoryPricingMap,
-          getPricing: buildProviderPricingResolver(buildCategoryPricingResolver(categoryPricingMap)),
+          getPricing: buildModelPricingResolver(buildCategoryPricingResolver(categoryPricingMap)),
         };
         console.log('Initialized pricing from LiteLLM.');
         return pricingState;

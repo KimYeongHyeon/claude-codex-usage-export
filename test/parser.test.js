@@ -83,7 +83,7 @@ test('collectRawRows maps assistant usage events into export rows', async () => 
   assert.equal(rows.length, 1);
   assert.deepEqual(rows[0], {
     Date: '2026-02-27T10:46:52.881Z',
-    Provider: 'Claude Code',
+    Source: 'Claude Code',
     User: 'unknown',
     'Cloud Agent ID': '',
     'Automation ID': '',
@@ -97,6 +97,37 @@ test('collectRawRows maps assistant usage events into export rows', async () => 
     'Total Tokens': 106400,
     Cost: 0.14,
   });
+});
+
+test('Claude Code source rows use OpenAI pricing when the recorded model is GPT', async () => {
+  const claudeDir = makeTempClaudeDir();
+
+  writeJsonl(path.join(claudeDir, 'projects', 'project-a', 'gpt-session.jsonl'), [
+    {
+      type: 'assistant',
+      timestamp: '2026-07-31T02:17:00.000Z',
+      sessionId: 'gpt-session',
+      cloudAgentId: 'a7a60929e04c2508f',
+      message: {
+        role: 'assistant',
+        model: 'gpt-5.6-sol',
+        usage: {
+          input_tokens: 100000,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+          output_tokens: 100000,
+        },
+      },
+    },
+  ]);
+
+  const rows = await collectRawRows({ claudeDir, getPricing });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].Source, 'Claude Code');
+  assert.equal(rows[0].Provider, undefined);
+  assert.equal(rows[0].Model, 'gpt-5.6-sol');
+  assert.equal(rows[0].Cost, 3.5);
 });
 
 test('collectRawRows prefers project logs and dedupes transcript duplicates', async () => {

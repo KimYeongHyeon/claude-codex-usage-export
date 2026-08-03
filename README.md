@@ -1,4 +1,4 @@
-# Claude Code + Codex Usage Export
+# Claude + Codex Usage Export
 
 > Export local Claude Code and OpenAI Codex token history to one clean, filterable Excel workbook.
 
@@ -17,7 +17,7 @@ It is a local exporter, not a hosted analytics service. Conversation content is 
 
 - Claude Code and Codex rows in the same dashboard and `Raw` worksheet
 - A `Both` / `Claude Code` / `Codex` filter for separate dashboard views and exports
-- A `Provider` column that keeps both sources distinguishable
+- A `Source` column that distinguishes where each record was found
 - One-click `.xlsx` export plus a headless `curl` workflow
 - Today, yesterday, last 24 hours, 7 days, 30 days, all history, and custom ranges
 - Regular input, cache-write, cache-read, output, total tokens, and cost estimates
@@ -39,7 +39,7 @@ Requirements:
 No clone or local installation is required:
 
 ```bash
-npx --yes github:KimYeongHyeon/claude-usage-dashboard
+npx --yes github:KimYeongHyeon/claude-codex-usage-export
 ```
 
 Open [http://127.0.0.1:3456](http://127.0.0.1:3456) after the server starts. The first `npx` run downloads the project and its dependency from GitHub; subsequent runs may reuse the local npm cache.
@@ -48,7 +48,7 @@ Environment variables can be placed before the command:
 
 ```bash
 PORT=8080 USAGE_EXPORT_USER=you@example.com \
-  npx --yes github:KimYeongHyeon/claude-usage-dashboard
+  npx --yes github:KimYeongHyeon/claude-codex-usage-export
 ```
 
 This form is convenient for one-off use. Clone the repository when you want a pinned checkout, offline reuse, or development access.
@@ -56,8 +56,8 @@ This form is convenient for one-off use. Clone the repository when you want a pi
 ### Install from source
 
 ```bash
-git clone https://github.com/KimYeongHyeon/claude-usage-dashboard.git
-cd claude-usage-dashboard
+git clone https://github.com/KimYeongHyeon/claude-codex-usage-export.git
+cd claude-codex-usage-export
 npm ci
 npm start
 ```
@@ -79,7 +79,7 @@ The downloaded workbook contains one `Raw` worksheet. Dashboard filters and sort
 
 | Control | Behavior |
 | --- | --- |
-| `Both` / `Claude Code` / `Codex` | Shows and exports both providers or only the selected provider |
+| `Both` / `Claude Code` / `Codex` | Shows and exports both log sources or only the selected source |
 | `Today` / `Yesterday` | Uses calendar-day boundaries in the browser's time zone |
 | `Last 24h` | Uses a rolling 24-hour window |
 | `Last 7d` / `Last 30d` | Uses rolling 7-day or 30-day windows |
@@ -106,7 +106,7 @@ To expose the exporter directly on a trusted private network:
 
 ```bash
 HOST=0.0.0.0 PORT=3456 \
-  npx --yes github:KimYeongHyeon/claude-usage-dashboard
+  npx --yes github:KimYeongHyeon/claude-codex-usage-export
 ```
 
 The terminal prints the available local and network URLs. The exporter has no built-in authentication; do not expose it directly to the public internet. Put authentication and TLS in front of it when using a reverse proxy, and forward the complete app path including `/api/*` and `/export.xlsx`.
@@ -139,11 +139,11 @@ curl --fail --output usage-by-tokens.xlsx \
 
 # Export only Codex usage
 curl --fail --output codex-usage.xlsx \
-  'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&provider=codex'
+  'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&source=codex'
 
 # Export only Claude Code usage
 curl --fail --output claude-usage.xlsx \
-  'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&provider=claude'
+  'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&source=claude'
 ```
 
 ### HTTP endpoints
@@ -161,7 +161,7 @@ Supported export parameters:
 | --- | --- | --- |
 | `since` | Unix milliseconds or ISO-8601 timestamp | Limits the source scan; defaults to 30 days ago |
 | `preset` | `today`, `yesterday`, `last24h`, `last7d`, `last30d`, `all` | Selects the export time window |
-| `provider` | `all`, `claude`, `codex` | Includes both providers or only the selected provider; defaults to `all` |
+| `source` | `all`, `claude`, `codex` | Includes both log sources or only the selected source; defaults to `all` |
 | `start`, `end` | Unix milliseconds or ISO-8601 timestamps | Defines an explicit range when both are present |
 | `inclusiveEnd` | `true` or `false` | Controls whether an explicit end timestamp is included |
 | `timeZone` | IANA name such as `Asia/Seoul` | Applies calendar-day presets in a specific time zone |
@@ -169,6 +169,7 @@ Supported export parameters:
 | `sortDirection` | `asc` or `desc` | Selects the sort direction |
 
 `start`, `end`, and `inclusiveEnd` must be provided together. An invalid explicit range falls back to the selected preset.
+The legacy `provider` parameter remains accepted as an alias for `source` so older scripts do not break.
 
 ## Data Sources
 
@@ -208,27 +209,31 @@ The workbook contains one row per token-usage event.
 | Column | Meaning |
 | --- | --- |
 | `Date` | Event timestamp |
-| `Provider` | `Claude Code` or `Codex` |
+| `Source` | Log origin: `Claude Code` or `Codex` |
+| `Model` | Model recorded for the event |
 | `User` | Configured label, detected email, or `unknown` |
 | `Cloud Agent ID` | Claude cloud-agent identifier when present |
 | `Automation ID` | Claude automation identifier when present |
 | `Kind` | Export category; currently `Included` |
-| `Model` | Model recorded for the event |
 | `Max Mode` | Whether Claude max mode can be inferred |
 | `Input (w/ Cache Write)` | Tokens written to a prompt cache |
 | `Input (w/o Cache Write)` | Direct input excluding cache reads and writes |
 | `Cache Read` | Tokens read from a prompt cache |
 | `Output Tokens` | Generated output tokens; Codex reasoning tokens are already included |
-| `Total Tokens` | Provider-reported input plus output |
+| `Total Tokens` | Source-reported input plus output |
 | `Cost` | Estimated standard API-equivalent USD cost, when priced |
 
-Unknown or unpriced Codex models produce a blank `Cost`; they never fall back to Anthropic pricing.
+`Source` and `Model` answer different questions. `Source` tells you which local log contained the event; `Model` tells you which model actually ran. A GPT model can therefore legitimately appear with `Source = Claude Code` when a router, proxy, plugin, or delegated workflow records that call in Claude Code history.
+
+Pricing is selected from the `Model` family, never from `Source`. GPT and o-series models use OpenAI rates even inside Claude Code logs; Claude models use Anthropic rates even inside Codex logs. Unknown or unpriced models produce a blank `Cost` instead of falling back to another vendor's price.
+
+Upgrade note: the former `Provider` export column was renamed to `Source` because it represents the log origin, not the model vendor. Scripts that consume `/api/raw` or the workbook should update that column name. The `provider=` URL parameter remains available as a deprecated alias for `source=`.
 
 ## How It Works
 
 ```mermaid
 flowchart LR
-    A[Claude Code JSONL] --> C[Provider parsers]
+    A[Claude Code JSONL] --> C[Source parsers]
     B[Codex JSONL] --> C
     C --> D[Compact metadata cache]
     D --> E[Normalize and deduplicate]
@@ -236,7 +241,7 @@ flowchart LR
     E --> G[Raw Excel worksheet]
 ```
 
-The two providers are scanned concurrently. Each parser keeps only the identifiers and token metadata needed for normalization and deduplication. The browser dashboard and Excel exporter consume the same row model.
+The two sources are scanned concurrently. Each parser keeps only the identifiers and token metadata needed for normalization and deduplication. The browser dashboard and Excel exporter consume the same row model.
 
 ## Performance
 
@@ -252,6 +257,7 @@ Cache files:
 ```
 
 Both caches are written with owner-only permissions (`0600`) on macOS and Linux. Delete them at any time to force a clean re-index.
+Their legacy filenames are intentionally retained so upgrades reuse an existing index instead of performing another cold scan.
 
 ## Privacy and Network Access
 
@@ -270,6 +276,8 @@ The metadata caches still reveal timestamps, model names, token counts, and sess
 
 - Claude prices are refreshed from the [LiteLLM model price dataset](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), with bundled offline defaults.
 - Codex uses [OpenAI's standard API token prices](https://developers.openai.com/api/docs/pricing) as an API-equivalent estimate.
+- Price selection follows the recorded model family, not the log source.
+- Cache reads are priced separately and are usually much cheaper than uncached input. More tokens can therefore produce a lower estimate when most of them are cache hits.
 - Codex sessions authenticated through a ChatGPT plan are subscription usage; their actual billed cost cannot be derived from local logs. See [Codex authentication](https://developers.openai.com/codex/auth) and [Codex pricing](https://developers.openai.com/codex/pricing).
 - Tool calls, containers, regional premiums, and Batch/Flex/Fast pricing are outside this export.
 
@@ -306,7 +314,7 @@ Project layout:
 ```text
 src/parser.js         Claude Code discovery, normalization, and cache
 src/codex-parser.js   Codex discovery, normalization, and cache
-src/pricing.js        Provider-aware price resolution
+src/pricing.js        Model-aware price resolution
 src/filter.js         Date-window filtering
 src/sort.js           Stable column sorting
 src/workbook.js       XLSX workbook generation

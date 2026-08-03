@@ -198,16 +198,19 @@ function mapAssistantEntryToRow(entry, getPricing) {
   const cacheRead = usage.cache_read_input_tokens || 0;
   const outputTokens = usage.output_tokens || 0;
   const totalTokens = cacheWrite + inputWithoutCacheWrite + cacheRead + outputTokens;
-  const pricing = getPricing(model);
-  const cost =
-    inputWithoutCacheWrite * pricing.input +
-    cacheWrite * pricing.cacheWrite +
-    cacheRead * pricing.cacheRead +
-    outputTokens * pricing.output;
+  const pricing = getPricing(model, 'Claude Code', {
+    inputTokens: cacheWrite + inputWithoutCacheWrite + cacheRead,
+  });
+  const cost = pricing
+    ? inputWithoutCacheWrite * pricing.input +
+      cacheWrite * pricing.cacheWrite +
+      cacheRead * pricing.cacheRead +
+      outputTokens * pricing.output
+    : null;
 
   return {
     Date: entry.timestamp || '',
-    Provider: 'Claude Code',
+    Source: 'Claude Code',
     User: extractUser(entry),
     'Cloud Agent ID': extractCloudAgentId(entry),
     'Automation ID': extractAutomationId(entry),
@@ -219,7 +222,7 @@ function mapAssistantEntryToRow(entry, getPricing) {
     'Cache Read': cacheRead,
     'Output Tokens': outputTokens,
     'Total Tokens': totalTokens,
-    Cost: roundCost(cost),
+    Cost: cost === null ? null : roundCost(cost),
   };
 }
 
