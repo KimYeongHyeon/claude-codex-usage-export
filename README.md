@@ -1,6 +1,6 @@
 # Claude + Codex Usage Export
 
-> Export local Claude Code and OpenAI Codex token history to one clean, filterable Excel workbook.
+> 로컬에 저장된 Claude Code와 OpenAI Codex 사용량을 한 화면에서 확인하고, 필터링된 원본 데이터를 Excel로 내보내는 로컬 전용 도구입니다.
 
 ![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS-supported-111827?logo=apple)
@@ -9,51 +9,58 @@
 ![Excel export](https://img.shields.io/badge/export-.xlsx-217346?logo=microsoftexcel&logoColor=white)
 ![MIT License](https://img.shields.io/badge/license-MIT-blue)
 
-This project does one job: it turns the usage records already stored by Claude Code and Codex on your machine into an `.xlsx` file that can be inspected, sorted, shared, or analyzed elsewhere.
+이 프로젝트의 목적은 명확합니다. Claude Code와 Codex가 사용자 컴퓨터에 남긴 로컬 사용 기록을 읽어, 검토·정렬·공유·후속 분석에 사용할 수 있는 `.xlsx` 파일로 변환합니다.
 
-It is a local exporter, not a hosted analytics service. Conversation content is never included in the export or parse caches.
+호스팅형 분석 서비스가 아닙니다. 원본 JSONL, 대화 내용, 사용량 데이터는 외부 서버로 업로드하지 않으며 대화 내용은 내보내기 파일과 파싱 캐시에도 포함하지 않습니다.
 
-## What You Get
+## 주요 기능
 
-- Claude Code and Codex rows in the same dashboard and `Raw` worksheet
-- A `Both` / `Claude Code` / `Codex` filter for separate dashboard views and exports
-- A `Source` column that distinguishes where each record was found
-- One-click `.xlsx` export plus a headless `curl` workflow
-- Today, yesterday, last 24 hours, 7 days, 30 days, all history, and custom ranges
-- Regular input, cache-write, cache-read, output, total tokens, and cost estimates
-- Duplicate removal across active, transcript, and archived session copies
-- File-level progress during first indexing
-- Compact metadata-only disk caches for fast restarts
-- Automated tests on both Ubuntu and macOS with Node.js 18 and 22
+- Claude Code와 Codex 사용량을 하나의 대시보드와 `Raw` 워크시트로 통합
+- `Both` / `Claude Code` / `Codex` 필터를 이용한 출처별 조회 및 내보내기
+- 로그 출처를 명확히 구분하는 `Source` 컬럼
+- 클릭 한 번으로 `.xlsx` 다운로드 또는 `curl`을 이용한 헤드리스 내보내기
+- 오늘, 어제, 최근 24시간, 7일, 30일, 전체 기간 및 사용자 지정 기간 지원
+- 일반 입력, 캐시 쓰기, 캐시 읽기, 출력, 전체 토큰 및 API 환산 비용 제공
+- 활성 세션, transcript, 보관 세션 사이의 중복 기록 제거
+- 최초 인덱싱 진행률 표시
+- 메타데이터만 저장하는 디스크 캐시를 이용한 빠른 재시작
+- Ubuntu 및 macOS, Node.js 18 및 22 자동 테스트
 
-## Installation
+## 빠른 시작
 
-Requirements:
+### 요구 사항
 
-- macOS or Linux
-- Node.js 18 or newer
-- Local history from Claude Code, Codex, or both
+- macOS 또는 Linux
+- Node.js 18 이상
+- Claude Code 또는 Codex의 로컬 사용 기록
 
-### Run immediately with npx
+### npx로 바로 실행
 
-No clone or local installation is required:
+저장소를 복제하거나 별도로 설치할 필요가 없습니다.
 
 ```bash
 npx --yes github:KimYeongHyeon/claude-codex-usage-export
 ```
 
-Open [http://127.0.0.1:3456](http://127.0.0.1:3456) after the server starts. The first `npx` run downloads the project and its dependency from GitHub; subsequent runs may reuse the local npm cache.
+서버가 시작되면 터미널에 다음과 같이 실제 접속 주소가 출력됩니다.
 
-Environment variables can be placed before the command:
+```text
+Claude + Codex Usage Export is ready.
+Open: http://127.0.0.1:3456
+```
+
+브라우저에서 출력된 `Open:` 주소를 여십시오. 기본 포트 `3456`이 이미 사용 중이면 `3457`, `3458` 순서로 사용 가능한 포트를 자동 선택합니다.
+
+환경변수는 명령 앞에 지정할 수 있습니다.
 
 ```bash
 PORT=8080 USAGE_EXPORT_USER=you@example.com \
   npx --yes github:KimYeongHyeon/claude-codex-usage-export
 ```
 
-This form is convenient for one-off use. Clone the repository when you want a pinned checkout, offline reuse, or development access.
+최초 `npx` 실행은 GitHub에서 프로젝트와 의존성을 내려받습니다. 이후 실행에서는 npm 로컬 캐시를 재사용할 수 있습니다.
 
-### Install from source
+### 소스에서 실행
 
 ```bash
 git clone https://github.com/KimYeongHyeon/claude-codex-usage-export.git
@@ -62,59 +69,59 @@ npm ci
 npm start
 ```
 
-The server prefers [http://127.0.0.1:3456](http://127.0.0.1:3456). If that port is already occupied, it automatically tries the next port and prints the actual `Open:` URL in the terminal. By default, it only listens on the local machine.
+서버는 기본적으로 `127.0.0.1`에만 바인딩되므로 같은 컴퓨터에서만 접근할 수 있습니다.
 
-## Usage
+## 사용 방법
 
-### Export from the dashboard
+### 대시보드에서 Excel 내보내기
 
-1. Start the exporter with the `npx` command above or with `npm start` from a clone.
-2. Open [http://127.0.0.1:3456](http://127.0.0.1:3456).
-3. Wait for the initial indexing progress to finish. The default load covers the last 30 days.
-4. Select a preset or enter a custom start and end date.
-5. Click a column header if the workbook should use a specific sort order.
-6. Click **Download Excel**.
+1. 위의 `npx` 명령 또는 `npm start`로 서버를 실행합니다.
+2. 터미널에 표시된 `Open:` 주소를 브라우저에서 엽니다.
+3. 최초 인덱싱이 끝날 때까지 기다립니다. 기본 조회 범위는 최근 30일입니다.
+4. `Both`, `Claude Code`, `Codex` 중 내보낼 로그 출처를 선택합니다.
+5. 기간 프리셋 또는 사용자 지정 시작일·종료일을 선택합니다.
+6. 필요한 경우 컬럼 헤더를 눌러 정렬 순서를 지정합니다.
+7. **Download Excel**을 누릅니다.
 
-The downloaded workbook contains one `Raw` worksheet. Dashboard filters and sorting are applied to the exported rows.
+다운로드되는 통합 문서에는 `Raw` 워크시트 하나가 포함됩니다. 현재 적용된 기간, 출처 및 정렬 조건이 Excel에도 그대로 반영됩니다.
 
-| Control | Behavior |
+| 화면 제어 | 동작 |
 | --- | --- |
-| `Both` / `Claude Code` / `Codex` | Shows and exports both log sources or only the selected source |
-| `Today` / `Yesterday` | Uses calendar-day boundaries in the browser's time zone |
-| `Last 24h` | Uses a rolling 24-hour window |
-| `Last 7d` / `Last 30d` | Uses rolling 7-day or 30-day windows |
-| `All` | Scans all available local history |
-| Custom range | Includes the selected start and end dates |
-| Column header | Toggles ascending and descending export order |
-| `Refresh` | Rescans changed files and reuses cached results for unchanged files |
+| `Both` / `Claude Code` / `Codex` | 전체 또는 선택한 로그 출처만 조회하고 내보냅니다. |
+| `Today` / `Yesterday` | 브라우저 시간대의 날짜 경계를 사용합니다. |
+| `Last 24h` | 현재 시각을 기준으로 직전 24시간을 조회합니다. |
+| `Last 7d` / `Last 30d` | 현재 시각을 기준으로 직전 7일 또는 30일을 조회합니다. |
+| `All` | 사용 가능한 전체 로컬 기록을 탐색합니다. |
+| `Custom range` | 선택한 시작일과 종료일을 포함하는 기간을 조회합니다. |
+| 컬럼 헤더 | 오름차순과 내림차순을 전환합니다. |
+| `Refresh` | 변경된 파일을 다시 읽고, 변경되지 않은 파일은 캐시를 재사용합니다. |
 
-Stop the server with `Ctrl+C` in the terminal where it is running.
+서버를 종료하려면 실행 중인 터미널에서 `Ctrl+C`를 누르십시오.
 
-### Run on a remote server
+### 원격 서버에서 실행
 
-The recommended approach is an SSH tunnel. Start the exporter on the remote server, note the exact port printed after `Open:`, then run this on your computer:
+가장 안전한 방식은 SSH 터널입니다. 원격 서버에서 도구를 실행하고 터미널에 출력된 포트를 확인한 다음, 로컬 컴퓨터에서 다음 명령을 실행합니다.
 
 ```bash
 ssh -N -L 45678:127.0.0.1:3456 user@example-server
 ```
 
-Replace `3456` if the exporter selected another port, then open [http://127.0.0.1:45678](http://127.0.0.1:45678). This keeps the exporter bound to localhost and requires no public listener.
+도구가 다른 포트를 선택했다면 마지막 `3456`을 실제 포트로 바꾸십시오. 이후 로컬 브라우저에서 [http://127.0.0.1:45678](http://127.0.0.1:45678)을 열면 됩니다.
 
-Remote-development environments such as VS Code port forwarding, JupyterHub, and path-based workspace proxies are also supported. Open the forwarded URL exactly as provided, including a prefix such as `/proxy/3456/`. Dashboard API calls and downloads preserve that prefix.
+VS Code 포트 포워딩, JupyterHub, 경로 기반 워크스페이스 프록시도 지원합니다. `/proxy/3456/`처럼 접두사가 포함된 주소가 제공되면 그 주소 전체를 그대로 열어야 합니다. 대시보드의 API 호출과 다운로드 주소도 동일한 접두사를 유지합니다.
 
-To expose the exporter directly on a trusted private network:
+신뢰할 수 있는 사설망에 직접 공개하려면 다음과 같이 실행할 수 있습니다.
 
 ```bash
 HOST=0.0.0.0 PORT=3456 \
   npx --yes github:KimYeongHyeon/claude-codex-usage-export
 ```
 
-The terminal prints the available local and network URLs. The exporter has no built-in authentication; do not expose it directly to the public internet. Put authentication and TLS in front of it when using a reverse proxy, and forward the complete app path including `/api/*` and `/export.xlsx`.
+이 도구에는 인증 기능이 없습니다. 인터넷에 직접 공개하지 마십시오. 역방향 프록시를 사용할 때는 인증과 TLS를 구성하고 `/api/*`, `/export.xlsx`를 포함한 전체 애플리케이션 경로를 전달해야 합니다.
 
-### Export from the command line
+### 명령줄에서 Excel 내보내기
 
-The same workbook can be downloaded without opening a browser. Start the server, then call the export endpoint:
-
+브라우저 없이도 동일한 통합 문서를 받을 수 있습니다.
 
 ```bash
 npm start &
@@ -122,58 +129,61 @@ curl --fail --output usage-raw.xlsx \
   'http://127.0.0.1:3456/export.xlsx?since=0&preset=all'
 ```
 
-Common examples:
+자주 사용하는 예시는 다음과 같습니다.
 
 ```bash
-# Last 7 days
+# 최근 7일
 curl --fail --output usage-last-7d.xlsx \
   'http://127.0.0.1:3456/export.xlsx?preset=last7d'
 
-# Everything since an ISO-8601 timestamp
+# 지정 시각 이후의 모든 사용량
 curl --fail --output usage-since-date.xlsx \
   'http://127.0.0.1:3456/export.xlsx?since=2026-01-01T00:00:00Z&preset=all'
 
-# Sort the complete export by total tokens, largest first
+# 전체 사용량을 Total Tokens 내림차순으로 정렬
 curl --fail --output usage-by-tokens.xlsx \
   'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&sortBy=Total%20Tokens&sortDirection=desc'
 
-# Export only Codex usage
+# Codex 사용량만 내보내기
 curl --fail --output codex-usage.xlsx \
   'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&source=codex'
 
-# Export only Claude Code usage
+# Claude Code 사용량만 내보내기
 curl --fail --output claude-usage.xlsx \
   'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&source=claude'
 ```
 
-### HTTP endpoints
+## HTTP API
 
-| Endpoint | Description |
+### 엔드포인트
+
+| 엔드포인트 | 설명 |
 | --- | --- |
-| `GET /` | Local dashboard |
-| `GET /api/raw` | Normalized rows as JSON |
-| `GET /api/progress` | Current indexing progress |
-| `GET /export.xlsx` | Excel workbook download |
+| `GET /` | 로컬 대시보드 |
+| `GET /api/raw` | 정규화된 사용량 행을 JSON으로 반환 |
+| `GET /api/progress` | 현재 인덱싱 진행률 반환 |
+| `GET /export.xlsx` | Excel 통합 문서 다운로드 |
 
-Supported export parameters:
+### 내보내기 파라미터
 
-| Parameter | Accepted values | Purpose |
+| 파라미터 | 허용값 | 설명 |
 | --- | --- | --- |
-| `since` | Unix milliseconds or ISO-8601 timestamp | Limits the source scan; defaults to 30 days ago |
-| `preset` | `today`, `yesterday`, `last24h`, `last7d`, `last30d`, `all` | Selects the export time window |
-| `source` | `all`, `claude`, `codex` | Includes both log sources or only the selected source; defaults to `all` |
-| `start`, `end` | Unix milliseconds or ISO-8601 timestamps | Defines an explicit range when both are present |
-| `inclusiveEnd` | `true` or `false` | Controls whether an explicit end timestamp is included |
-| `timeZone` | IANA name such as `Asia/Seoul` | Applies calendar-day presets in a specific time zone |
-| `sortBy` | Any export column name | Selects the sort column |
-| `sortDirection` | `asc` or `desc` | Selects the sort direction |
+| `since` | Unix 밀리초 또는 ISO 8601 시각 | 원본 탐색 범위를 제한합니다. 기본값은 30일 전입니다. |
+| `preset` | `today`, `yesterday`, `last24h`, `last7d`, `last30d`, `all` | 내보낼 기간을 선택합니다. |
+| `source` | `all`, `claude`, `codex` | 전체 또는 특정 로그 출처를 선택합니다. 기본값은 `all`입니다. |
+| `start`, `end` | Unix 밀리초 또는 ISO 8601 시각 | 두 값이 모두 있을 때 명시적인 기간을 정의합니다. |
+| `inclusiveEnd` | `true`, `false` | 명시적인 종료 시각을 포함할지 결정합니다. |
+| `timeZone` | `Asia/Seoul` 등의 IANA 시간대 | 날짜 기반 프리셋에 적용할 시간대를 지정합니다. |
+| `sortBy` | 내보내기 컬럼명 | 정렬할 컬럼을 지정합니다. |
+| `sortDirection` | `asc`, `desc` | 정렬 방향을 지정합니다. |
 
-`start`, `end`, and `inclusiveEnd` must be provided together. An invalid explicit range falls back to the selected preset.
-The legacy `provider` parameter remains accepted as an alias for `source` so older scripts do not break.
+`start`, `end`, `inclusiveEnd`는 함께 제공해야 합니다. 값이 잘못되었거나 시작일이 종료일보다 늦으면 선택한 `preset`을 사용합니다.
 
-## Data Sources
+이전 버전과의 호환을 위해 `provider` 파라미터도 `source`의 별칭으로 계속 허용합니다.
 
-The defaults follow the official local directory layouts:
+## 사용량 데이터 출처
+
+사용량은 Anthropic 또는 OpenAI의 계정 API에서 가져오지 않습니다. 현재 컴퓨터에 저장된 다음 JSONL 파일을 직접 읽습니다.
 
 ```text
 ~/.claude/projects/**/*.jsonl
@@ -182,181 +192,231 @@ The defaults follow the official local directory layouts:
 ~/.codex/archived_sessions/**/*.jsonl
 ```
 
-Override the roots with `CLAUDE_CONFIG_DIR` and `CODEX_HOME` when your setup differs.
+다른 위치를 사용한다면 `CLAUDE_CONFIG_DIR`과 `CODEX_HOME`으로 루트 경로를 변경할 수 있습니다.
 
-The default view reads the last 30 days. Selecting **All** expands the scan to the complete local history.
+### Claude Code
 
-## Set the User Column
+`type`이 `assistant`이고 `message.usage`가 있는 이벤트에서 다음 값을 읽습니다.
 
-Use one shared label for both providers:
+```text
+message.usage.input_tokens
+message.usage.cache_creation_input_tokens
+message.usage.cache_read_input_tokens
+message.usage.output_tokens
+```
+
+`message.id`, `requestId`, 세션 ID 및 토큰 메타데이터를 이용해 `projects`와 `transcripts` 사이의 중복 기록을 제거합니다.
+
+### Codex
+
+다음 형태의 토큰 이벤트를 읽습니다.
+
+```text
+type = event_msg
+payload.type = token_count
+payload.info.last_token_usage
+```
+
+주요 사용량 필드는 다음과 같습니다.
+
+```text
+input_tokens
+cached_input_tokens
+output_tokens
+reasoning_output_tokens
+total_tokens
+```
+
+각 행은 누적값인 `total_token_usage`가 아니라 개별 호출의 `last_token_usage`로 생성합니다. Codex의 reasoning 토큰은 `output_tokens`에 이미 포함되므로 다시 더하지 않습니다.
+
+Codex 로그는 일반적으로 캐시 생성 토큰을 별도 필드로 제공하지 않습니다. 따라서 Codex의 `Input (w/ Cache Write)`가 `0`이어도 캐시가 사용되지 않았다는 뜻은 아닙니다. 실제 캐시 적중량은 `Cache Read`에서 확인하십시오.
+
+## 사용자 컬럼 설정
+
+두 로그 출처에 공통 사용자명을 지정하려면 다음 환경변수를 사용합니다.
 
 ```bash
 USAGE_EXPORT_USER=you@example.com npm start
 ```
 
-Legacy provider-specific variables remain supported:
+이전 버전의 출처별 환경변수도 지원합니다.
 
 ```bash
 CLAUDE_USAGE_USER=you@example.com CODEX_USAGE_USER=you@example.com npm start
 ```
 
-Claude Code metadata can sometimes provide an email automatically. Codex logs generally cannot, so an unset value may export as `unknown`.
+Claude Code 로그에서는 이메일을 자동으로 찾을 수 있지만 Codex 로그에는 사용자 정보가 없는 경우가 많습니다. 사용자명을 설정하지 못하면 `unknown`으로 표시합니다.
 
-## Export Schema
+## 내보내기 스키마
 
-The workbook contains one row per token-usage event.
+Excel에는 토큰 사용 이벤트 하나당 한 행이 생성됩니다.
 
-| Column | Meaning |
+| 컬럼 | 의미 |
 | --- | --- |
-| `Date` | Event timestamp |
-| `Source` | Log origin: `Claude Code` or `Codex` |
-| `Model` | Model recorded for the event |
-| `User` | Configured label, detected email, or `unknown` |
-| `Cloud Agent ID` | Claude cloud-agent identifier when present |
-| `Automation ID` | Claude automation identifier when present |
-| `Kind` | Export category; currently `Included` |
-| `Max Mode` | Whether Claude max mode can be inferred |
-| `Input (w/ Cache Write)` | Tokens written to a prompt cache |
-| `Input (w/o Cache Write)` | Direct input excluding cache reads and writes |
-| `Cache Read` | Tokens read from a prompt cache |
-| `Output Tokens` | Generated output tokens; Codex reasoning tokens are already included |
-| `Total Tokens` | Source-reported input plus output |
-| `Cost` | Estimated standard API-equivalent USD cost, when priced |
+| `Date` | 이벤트 발생 시각 |
+| `Source` | 로그 출처: `Claude Code` 또는 `Codex` |
+| `Model` | 이벤트에 기록된 실제 모델명 |
+| `User` | 설정값, 로그에서 찾은 이메일 또는 `unknown` |
+| `Cloud Agent ID` | Claude cloud agent 식별자 |
+| `Automation ID` | Claude automation 식별자 |
+| `Kind` | 내보내기 분류. 현재 값은 `Included`입니다. |
+| `Max Mode` | Claude max mode 추론 결과 |
+| `Input (w/ Cache Write)` | 프롬프트 캐시에 새로 기록된 토큰 |
+| `Input (w/o Cache Write)` | 캐시 읽기와 쓰기를 제외한 직접 입력 토큰 |
+| `Cache Read` | 프롬프트 캐시에서 읽은 토큰 |
+| `Output Tokens` | 생성된 출력 토큰. Codex reasoning 토큰도 포함됩니다. |
+| `Total Tokens` | 로그에 기록된 입력과 출력의 합계 |
+| `Cost` | 표준 API 가격으로 환산한 USD 추정 비용 |
 
-`Source` and `Model` answer different questions. `Source` tells you which local log contained the event; `Model` tells you which model actually ran. A GPT model can therefore legitimately appear with `Source = Claude Code` when a router, proxy, plugin, or delegated workflow records that call in Claude Code history.
+### `Source`와 `Model`의 차이
 
-Pricing is selected from the `Model` family, never from `Source`. GPT and o-series models use OpenAI rates even inside Claude Code logs; Claude models use Anthropic rates even inside Codex logs. Unknown or unpriced models produce a blank `Cost` instead of falling back to another vendor's price.
+두 컬럼은 서로 다른 정보를 나타냅니다.
 
-Upgrade note: the former `Provider` export column was renamed to `Source` because it represents the log origin, not the model vendor. Scripts that consume `/api/raw` or the workbook should update that column name. The `provider=` URL parameter remains available as a deprecated alias for `source=`.
+- `Source`: 어느 로컬 로그에서 발견한 이벤트인지 표시합니다.
+- `Model`: 실제 호출에 기록된 모델을 표시합니다.
 
-## How It Works
+라우터, 프록시, 플러그인 또는 위임 작업이 GPT 호출을 Claude Code 기록에 남기면 `Source = Claude Code`, `Model = gpt-*`가 함께 나타날 수 있습니다. 이는 모순이 아닙니다.
+
+가격은 `Source`가 아니라 `Model` 계열을 기준으로 선택합니다. Claude Code 로그 안의 GPT/o-series 모델에는 OpenAI 가격을, Codex 로그 안의 Claude 모델에는 Anthropic 가격을 적용합니다. 알 수 없거나 공식 가격이 없는 모델은 다른 모델 가격으로 추정하지 않고 `Cost`를 비워 둡니다.
+
+이전 버전의 `Provider` 컬럼은 실제 의미를 정확히 반영하기 위해 `Source`로 변경했습니다. `/api/raw` 또는 Excel을 처리하는 기존 스크립트는 컬럼명을 갱신해야 합니다.
+
+## 처리 구조
 
 ```mermaid
 flowchart LR
-    A[Claude Code JSONL] --> C[Source parsers]
+    A[Claude Code JSONL] --> C[출처별 파서]
     B[Codex JSONL] --> C
-    C --> D[Compact metadata cache]
-    D --> E[Normalize and deduplicate]
-    E --> F[Local dashboard]
-    E --> G[Raw Excel worksheet]
+    C --> D[메타데이터 캐시]
+    D --> E[정규화 및 중복 제거]
+    E --> F[로컬 대시보드]
+    E --> G[Excel Raw 워크시트]
 ```
 
-The two sources are scanned concurrently. Each parser keeps only the identifiers and token metadata needed for normalization and deduplication. The browser dashboard and Excel exporter consume the same row model.
+Claude와 Codex 파서는 동시에 실행됩니다. 각 파서는 정규화와 중복 제거에 필요한 식별자 및 토큰 메타데이터만 유지합니다. 브라우저 대시보드와 Excel 내보내기는 동일한 정규화 행을 사용합니다.
 
-## Performance
+## 성능과 캐시
 
-Codex histories can span several gigabytes. The first index must read the relevant JSONL files once; that cold scan can take several seconds. Afterward, unchanged files are served from compact per-file caches and normal refreshes avoid reparsing and rewriting them.
+Codex 기록은 수 GB까지 커질 수 있습니다. 최초 인덱싱에서는 관련 JSONL 파일을 한 번 읽어야 하므로 수 초 이상 걸릴 수 있습니다. 이후에는 파일별 수정 시각 캐시를 이용해 변경되지 않은 파일의 파싱과 캐시 재작성을 건너뜁니다.
 
-The startup path never waits for the network pricing refresh: bundled prices are available immediately, the server begins listening on localhost, and the optional LiteLLM refresh happens in the background.
+서버 시작은 네트워크 가격 갱신을 기다리지 않습니다. 내장 가격표로 즉시 서버를 열고, 선택적인 LiteLLM 가격 갱신은 백그라운드에서 수행합니다.
 
-Cache files:
+캐시 파일은 다음과 같습니다.
 
 ```text
 ~/.claude-usage-dashboard-cache.json
 ~/.claude-usage-dashboard-codex-cache.json
 ```
 
-Both caches are written with owner-only permissions (`0600`) on macOS and Linux. Delete them at any time to force a clean re-index.
-Their legacy filenames are intentionally retained so upgrades reuse an existing index instead of performing another cold scan.
+두 파일은 macOS와 Linux에서 소유자만 읽고 쓸 수 있는 `0600` 권한으로 저장됩니다. 언제든 삭제해 전체 재인덱싱을 수행할 수 있습니다.
 
-## Privacy and Network Access
+프로젝트명이 변경되기 전 생성한 캐시를 그대로 재사용하기 위해 기존 캐시 파일명을 의도적으로 유지합니다.
 
-- The HTTP server binds to `127.0.0.1` by default. Setting `HOST` opts into another interface.
-- Source JSONL files never leave your machine.
-- Conversation text is not copied into the caches or export.
-- Excel files are generated locally.
-- One background `GET` request refreshes Claude model prices from LiteLLM.
-- If that request fails or the machine is offline, bundled prices remain active.
+## 비용의 의미
 
-The metadata caches still reveal timestamps, model names, token counts, and session identifiers. Treat them as private usage records.
+화면과 Excel의 `Cost`는 **실제 청구액이나 구독 사용료가 아니라 표준 API 가격 환산 추정치**입니다.
 
-## Cost Semantics
+- Claude 가격은 [LiteLLM 모델 가격 데이터](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)에서 백그라운드로 갱신하며 오프라인용 기본값도 내장합니다.
+- Codex 가격은 [OpenAI 표준 API 가격](https://developers.openai.com/api/docs/pricing)을 이용해 환산합니다.
+- 가격표는 로그 출처가 아닌 기록된 모델 계열로 선택합니다.
+- 캐시 읽기는 일반 입력보다 훨씬 저렴할 수 있습니다. 토큰이 더 많아도 캐시 적중 비중이 높으면 비용 추정치가 더 낮게 나올 수 있습니다.
+- ChatGPT 플랜으로 로그인한 Codex 사용량은 구독 사용량입니다. 로컬 로그만으로 실제 청구액을 계산할 수 없습니다. 자세한 내용은 [Codex 인증](https://developers.openai.com/codex/auth)과 [Codex 가격](https://developers.openai.com/codex/pricing)을 참고하십시오.
+- 도구 호출, 컨테이너, 지역별 추가 요금 및 Batch/Flex/Fast 가격은 계산 범위에 포함하지 않습니다.
 
-`Cost` is an estimate, not an invoice or subscription meter.
+## 개인정보 보호와 네트워크
 
-- Claude prices are refreshed from the [LiteLLM model price dataset](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), with bundled offline defaults.
-- Codex uses [OpenAI's standard API token prices](https://developers.openai.com/api/docs/pricing) as an API-equivalent estimate.
-- Price selection follows the recorded model family, not the log source.
-- Cache reads are priced separately and are usually much cheaper than uncached input. More tokens can therefore produce a lower estimate when most of them are cache hits.
-- Codex sessions authenticated through a ChatGPT plan are subscription usage; their actual billed cost cannot be derived from local logs. See [Codex authentication](https://developers.openai.com/codex/auth) and [Codex pricing](https://developers.openai.com/codex/pricing).
-- Tool calls, containers, regional premiums, and Batch/Flex/Fast pricing are outside this export.
+- 기본 HTTP 서버는 `127.0.0.1`에만 바인딩됩니다.
+- 원본 JSONL은 사용자 컴퓨터 밖으로 전송되지 않습니다.
+- 대화 내용은 캐시와 Excel에 복사하지 않습니다.
+- Excel 파일은 로컬에서 생성합니다.
+- Claude 모델 가격 갱신을 위한 백그라운드 `GET` 요청 한 번만 수행합니다.
+- 네트워크 요청이 실패해도 내장 가격표로 모든 기능을 사용할 수 있습니다.
 
-## Configuration
+메타데이터 캐시에는 시각, 모델명, 토큰 수 및 세션 식별자가 포함됩니다. 캐시 파일도 개인 사용 기록으로 취급하십시오.
 
-| Variable | Default | Purpose |
+## 환경변수
+
+| 변수 | 기본값 | 설명 |
 | --- | --- | --- |
-| `PORT` | `3456` | Local HTTP port |
-| `HOST` | `127.0.0.1` | Listen address; use `0.0.0.0` only for intentional network access |
-| `USAGE_EXPORT_USER` | detected value or `unknown` | Shared `User` value |
-| `CLAUDE_USAGE_USER` | unset | Claude-only fallback label |
-| `CODEX_USAGE_USER` | unset | Codex-only fallback label |
-| `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code data root |
-| `CODEX_HOME` | `~/.codex` | Codex data root |
-| `LITELLM_PRICING_URL` | public LiteLLM JSON | Alternate Claude pricing URL |
+| `PORT` | `3456` | 우선 사용할 HTTP 포트 |
+| `HOST` | `127.0.0.1` | 서버 바인딩 주소. 의도적인 네트워크 공개에만 `0.0.0.0`을 사용하십시오. |
+| `USAGE_EXPORT_USER` | 자동 감지 또는 `unknown` | 두 로그 출처에 공통으로 사용할 `User` 값 |
+| `CLAUDE_USAGE_USER` | 미설정 | Claude Code 전용 사용자명 대체값 |
+| `CODEX_USAGE_USER` | 미설정 | Codex 전용 사용자명 대체값 |
+| `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code 데이터 루트 |
+| `CODEX_HOME` | `~/.codex` | Codex 데이터 루트 |
+| `LITELLM_PRICING_URL` | 공개 LiteLLM JSON | Claude 가격을 읽을 대체 URL |
 
-Example:
+예시:
 
 ```bash
 PORT=8080 USAGE_EXPORT_USER=you@example.com \
   CLAUDE_CONFIG_DIR=/data/claude CODEX_HOME=/data/codex npm start
 ```
 
-If the preferred `PORT` is occupied, the exporter advances to the next available port and reports the selected URL.
+지정한 `PORT`가 이미 사용 중이면 다음 포트를 자동으로 선택하고 실제 주소를 터미널에 출력합니다.
 
-## Development
+## 개발 및 검증
 
 ```bash
 npm test
 ```
 
-Project layout:
+프로젝트 구성:
 
 ```text
-src/parser.js         Claude Code discovery, normalization, and cache
-src/codex-parser.js   Codex discovery, normalization, and cache
-src/pricing.js        Model-aware price resolution
-src/filter.js         Date-window filtering
-src/sort.js           Stable column sorting
-src/workbook.js       XLSX workbook generation
-src/server.js         Local HTTP server and export endpoint
-src/public/index.html Browser dashboard
-test/                 Node test suite
+src/parser.js         Claude Code 탐색, 정규화 및 캐시
+src/codex-parser.js   Codex 탐색, 정규화 및 캐시
+src/pricing.js        모델별 가격 판별
+src/filter.js         기간 및 출처 필터링
+src/sort.js           안정적인 컬럼 정렬
+src/workbook.js       XLSX 통합 문서 생성
+src/server.js         로컬 HTTP 서버 및 내보내기 API
+src/public/index.html 브라우저 대시보드
+test/                 Node.js 자동 테스트
 ```
 
-## Troubleshooting
+## 문제 해결
 
-### No rows appear
+### 데이터가 표시되지 않음
 
-Confirm that at least one source directory above contains `.jsonl` files. Then check custom roots and permissions. Only records with token-usage metadata can be exported.
+위의 데이터 경로 중 하나에 `.jsonl` 파일이 있는지 확인하십시오. 사용자 지정 루트와 파일 읽기 권한도 확인해야 합니다. 토큰 사용량 메타데이터가 있는 이벤트만 표시됩니다.
 
-### Port 3456 is already in use
+### 기본 포트가 이미 사용 중임
 
-No action is normally required. The exporter selects the next available port and prints the exact URL after `Open:`. You can still choose a preferred starting port with `PORT=8080`.
+별도 조치가 필요하지 않습니다. 사용 가능한 다음 포트를 자동으로 선택하고 정확한 `Open:` 주소를 출력합니다. 시작 포트를 직접 지정하려면 `PORT=8080`처럼 실행하십시오.
 
-### The dashboard says it received HTML instead of JSON
+### 대시보드에서 JSON 대신 HTML을 받았다는 오류가 발생함
 
-Open the exact URL printed by the server or forwarding service, including any `/proxy/.../` prefix. If a reverse proxy is configured manually, make sure it forwards the dashboard, `/api/raw`, `/api/progress`, and `/export.xlsx` to the same exporter process. An HTML response from an API request usually means the proxy sent the request to a login page or fallback page instead.
+터미널 또는 포트 포워딩 서비스가 제공한 주소를 `/proxy/.../` 접두사까지 포함하여 그대로 여십시오. 역방향 프록시를 직접 설정했다면 대시보드, `/api/raw`, `/api/progress`, `/export.xlsx`가 모두 같은 프로세스로 전달되는지 확인하십시오.
 
-### The browser console mentions `content-script-injectable.js`
+API 요청에서 HTML이 반환되면 프록시가 로그인 화면이나 기본 페이지를 대신 보냈을 가능성이 큽니다.
 
-That filename belongs to a browser extension content script, not this exporter. Disable extensions for the localhost page or open it in a clean browser profile if the extension error affects the page.
+### 브라우저 콘솔에 `content-script-injectable.js` 오류가 표시됨
 
-### First load is slow
+이 파일은 브라우저 확장 프로그램이 주입한 스크립트이며 본 프로젝트 코드가 아닙니다. 오류가 화면 동작에 영향을 준다면 localhost 페이지에서 확장 프로그램을 끄거나 깨끗한 브라우저 프로필을 사용하십시오.
 
-Let the initial 30-day index finish before selecting **All**. A complete Codex history can be gigabytes. Later loads reuse the disk cache.
+### 최초 로딩이 느림
 
-### Cost is blank
+기본 최근 30일 인덱싱이 끝난 뒤 `All`을 선택하십시오. 전체 Codex 기록은 수 GB일 수 있습니다. 다음 실행부터는 디스크 캐시를 재사용합니다.
 
-The model has no published standard API price or is unknown. Blank is intentional; inventing a price would be misleading.
+### 비용이 비어 있음
 
-### Pricing refresh fails
+기록된 모델을 알 수 없거나 공개된 표준 API 가격이 없는 경우입니다. 잘못된 가격을 임의로 적용하지 않기 위해 의도적으로 비워 둡니다.
 
-The app is fully usable offline with bundled prices. The warning only means the optional Claude price refresh failed.
+### 가격표 갱신이 실패함
 
-## Scope
+오프라인용 가격표가 내장되어 있으므로 모든 기능을 계속 사용할 수 있습니다. 경고는 선택적인 최신 Claude 가격 갱신에 실패했다는 뜻입니다.
 
-This is deliberately an export tool. It does not upload telemetry, read provider account quotas, reproduce official invoices, or reconstruct usage missing from local history.
+## 지원 범위
 
-## License
+이 프로젝트는 로컬 사용 기록을 Excel로 내보내는 도구입니다. 다음 기능은 제공하지 않습니다.
 
-Released under the [MIT License](LICENSE).
+- 사용량 또는 텔레메트리 외부 업로드
+- 공급자 계정의 공식 할당량 조회
+- 공식 청구서 재현
+- 로컬 기록에 존재하지 않는 사용량 복구
+
+## 라이선스
+
+[MIT License](LICENSE)로 배포합니다.
