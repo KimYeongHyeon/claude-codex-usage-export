@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { collectRawRows } = require('../src/parser');
+const { __compactAssistantEntry, collectRawRows } = require('../src/parser');
 const { createDefaultPricingResolver } = require('../src/pricing');
 
 const getPricing = createDefaultPricingResolver();
@@ -21,6 +21,26 @@ function writeJsonl(filePath, entries) {
     'utf8'
   );
 }
+
+test('persistent-cache entries exclude conversation content and keep usage metadata', () => {
+  const compact = __compactAssistantEntry({
+    type: 'assistant',
+    timestamp: '2026-08-03T00:00:00.000Z',
+    sessionId: 'session-1',
+    requestId: 'request-1',
+    message: {
+      id: 'message-1',
+      model: 'claude-sonnet-4-6',
+      content: [{ type: 'text', text: 'private conversation text' }],
+      usage: { input_tokens: 10, output_tokens: 2 },
+    },
+  });
+
+  assert.equal(compact.message.content, undefined);
+  assert.equal(compact.message.id, 'message-1');
+  assert.equal(compact.message.model, 'claude-sonnet-4-6');
+  assert.deepEqual(compact.message.usage, { input_tokens: 10, output_tokens: 2 });
+});
 
 test('collectRawRows maps assistant usage events into export rows', async () => {
   const claudeDir = makeTempClaudeDir();
@@ -63,6 +83,7 @@ test('collectRawRows maps assistant usage events into export rows', async () => 
   assert.equal(rows.length, 1);
   assert.deepEqual(rows[0], {
     Date: '2026-02-27T10:46:52.881Z',
+    Provider: 'Claude Code',
     User: 'unknown',
     'Cloud Agent ID': '',
     'Automation ID': '',

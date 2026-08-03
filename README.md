@@ -1,34 +1,37 @@
-# Claude Usage Export
+# Claude Code + Codex Usage Export
 
-> Export your local Claude Code usage history to a clean, filterable Excel workbook.
+> Export local Claude Code and OpenAI Codex token history to one clean, filterable Excel workbook.
 
 ![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-supported-111827?logo=apple)
+![Linux](https://img.shields.io/badge/Linux-supported-FCC624?logo=linux&logoColor=111827)
 ![Local first](https://img.shields.io/badge/data-local--first-0f766e)
 ![Excel export](https://img.shields.io/badge/export-.xlsx-217346?logo=microsoftexcel&logoColor=white)
 ![MIT License](https://img.shields.io/badge/license-MIT-blue)
 
-Claude Usage Export has one focused purpose: turn the usage events already stored by Claude Code in `~/.claude/` into an Excel file you can inspect, sort, share, or analyze elsewhere.
+This project does one job: it turns the usage records already stored by Claude Code and Codex on your machine into an `.xlsx` file that can be inspected, sorted, shared, or analyzed elsewhere.
 
-It is a local web app, not a hosted analytics service. Your conversation logs stay on your machine.
+It is a local exporter, not a hosted analytics service. Conversation content is never included in the export or parse caches.
 
 ## What You Get
 
-- One-click `.xlsx` export with a single `Raw` worksheet
-- Date presets for today, yesterday, the last 24 hours, 7 days, 30 days, or all history
-- Custom start and end dates
-- Sortable usage table with 100-row pagination
-- Input, cache-write, cache-read, output, and total token counts
-- Per-event cost estimates using current LiteLLM pricing when available
-- Duplicate-event removal across Claude Code project and transcript logs
-- Live progress during the first scan
-- In-memory and persistent caching for fast refreshes and restarts
+- Claude Code and Codex rows in the same dashboard and `Raw` worksheet
+- A `Provider` column that keeps both sources distinguishable
+- One-click `.xlsx` export plus a headless `curl` workflow
+- Today, yesterday, last 24 hours, 7 days, 30 days, all history, and custom ranges
+- Regular input, cache-write, cache-read, output, total tokens, and cost estimates
+- Duplicate removal across active, transcript, and archived session copies
+- File-level progress during first indexing
+- Compact metadata-only disk caches for fast restarts
+- Automated tests on both Ubuntu and macOS with Node.js 18 and 22
 
 ## Quick Start
 
 Requirements:
 
+- macOS or Linux
 - Node.js 18 or newer
-- Claude Code usage history under `~/.claude/`
+- Local history from Claude Code, Codex, or both
 
 ```bash
 git clone https://github.com/KimYeongHyeon/claude-usage-dashboard.git
@@ -37,95 +40,137 @@ npm install
 npm start
 ```
 
-Open [http://127.0.0.1:3456](http://127.0.0.1:3456), choose a date range, and click **Download Excel**.
+Open [http://127.0.0.1:3456](http://127.0.0.1:3456), choose a range, then click **Download Excel**.
 
-The downloaded file is named `claude-usage-raw.xlsx`.
-
-### Set the User column
-
-Claude Code logs do not always contain an account email. Set `CLAUDE_USAGE_USER` when you want a consistent value in the exported `User` column:
+For a headless Linux machine:
 
 ```bash
-CLAUDE_USAGE_USER=you@example.com npm start
+npm start &
+curl --fail --output usage-raw.xlsx \
+  'http://127.0.0.1:3456/export.xlsx?since=0&preset=all'
 ```
 
-Without this variable, the app uses an email found directly in the event metadata or exports `unknown`.
+## Data Sources
+
+The defaults follow the official local directory layouts:
+
+```text
+~/.claude/projects/**/*.jsonl
+~/.claude/transcripts/**/*.jsonl
+~/.codex/sessions/**/*.jsonl
+~/.codex/archived_sessions/**/*.jsonl
+```
+
+Override the roots with `CLAUDE_CONFIG_DIR` and `CODEX_HOME` when your setup differs.
+
+The default view reads the last 30 days. Selecting **All** expands the scan to the complete local history.
+
+## Set the User Column
+
+Use one shared label for both providers:
+
+```bash
+USAGE_EXPORT_USER=you@example.com npm start
+```
+
+Legacy provider-specific variables remain supported:
+
+```bash
+CLAUDE_USAGE_USER=you@example.com CODEX_USAGE_USER=you@example.com npm start
+```
+
+Claude Code metadata can sometimes provide an email automatically. Codex logs generally cannot, so an unset value may export as `unknown`.
 
 ## Export Schema
 
-The workbook contains one row per included assistant usage event.
+The workbook contains one row per token-usage event.
 
 | Column | Meaning |
 | --- | --- |
-| `Date` | Event timestamp from the Claude Code log |
-| `User` | Configured user label, detected email, or `unknown` |
-| `Cloud Agent ID` | Cloud agent identifier when present in the event |
-| `Automation ID` | Automation identifier when present in the event |
+| `Date` | Event timestamp |
+| `Provider` | `Claude Code` or `Codex` |
+| `User` | Configured label, detected email, or `unknown` |
+| `Cloud Agent ID` | Claude cloud-agent identifier when present |
+| `Automation ID` | Claude automation identifier when present |
 | `Kind` | Export category; currently `Included` |
 | `Model` | Model recorded for the event |
-| `Max Mode` | Whether max mode can be inferred from event metadata |
-| `Input (w/ Cache Write)` | Tokens written to the prompt cache |
-| `Input (w/o Cache Write)` | Regular input tokens excluding cache writes |
-| `Cache Read` | Tokens read from the prompt cache |
-| `Output Tokens` | Generated output tokens |
-| `Total Tokens` | Sum of input, cache-write, cache-read, and output tokens |
-| `Cost` | Estimated USD cost for the event |
+| `Max Mode` | Whether Claude max mode can be inferred |
+| `Input (w/ Cache Write)` | Tokens written to a prompt cache |
+| `Input (w/o Cache Write)` | Direct input excluding cache reads and writes |
+| `Cache Read` | Tokens read from a prompt cache |
+| `Output Tokens` | Generated output tokens; Codex reasoning tokens are already included |
+| `Total Tokens` | Provider-reported input plus output |
+| `Cost` | Estimated standard API-equivalent USD cost, when priced |
+
+Unknown or unpriced Codex models produce a blank `Cost`; they never fall back to Anthropic pricing.
 
 ## How It Works
 
 ```mermaid
 flowchart LR
-    A[Claude Code JSONL logs<br/>~/.claude/projects<br/>~/.claude/transcripts] --> B[Scan assistant usage events]
-    B --> C[Deduplicate and normalize]
-    C --> D[Apply date filter and sorting]
-    D --> E[Browser dashboard]
-    D --> F[Raw Excel worksheet]
+    A[Claude Code JSONL] --> C[Provider parsers]
+    B[Codex JSONL] --> C
+    C --> D[Compact metadata cache]
+    D --> E[Normalize and deduplicate]
+    E --> F[Local dashboard]
+    E --> G[Raw Excel worksheet]
 ```
 
-The server reads `assistant` events containing `message.usage`, removes duplicates using message and request identifiers, calculates normalized token fields, and serves the same row model to both the dashboard and the Excel exporter.
+The two providers are scanned concurrently. Each parser keeps only the identifiers and token metadata needed for normalization and deduplication. The browser dashboard and Excel exporter consume the same row model.
 
-The default view loads the last 30 days. Selecting a wider range triggers an additional scan only when required.
+## Performance
+
+Codex histories can span several gigabytes. The first index must read the relevant JSONL files once; that cold scan can take several seconds. Afterward, unchanged files are served from compact per-file caches and normal refreshes avoid reparsing and rewriting them.
+
+The startup path never waits for the network pricing refresh: bundled prices are available immediately, the server begins listening on localhost, and the optional LiteLLM refresh happens in the background.
+
+Cache files:
+
+```text
+~/.claude-usage-dashboard-cache.json
+~/.claude-usage-dashboard-codex-cache.json
+```
+
+Both caches are written with owner-only permissions (`0600`) on macOS and Linux. Delete them at any time to force a clean re-index.
 
 ## Privacy and Network Access
 
-Your Claude Code logs are processed locally.
+- The HTTP server binds explicitly to `127.0.0.1`.
+- Source JSONL files never leave your machine.
+- Conversation text is not copied into the caches or export.
+- Excel files are generated locally.
+- One background `GET` request refreshes Claude model prices from LiteLLM.
+- If that request fails or the machine is offline, bundled prices remain active.
 
-- The server binds to `127.0.0.1` by default.
-- Log contents are not uploaded by this application.
-- At startup, the app makes one outbound `GET` request to LiteLLM's public pricing JSON to refresh model prices.
-- If that request fails, bundled fallback prices are used.
-- Parsed usage events are cached locally at `~/.claude-usage-dashboard-cache.json` to speed up future starts.
-- Excel files are generated locally and downloaded by your browser.
+The metadata caches still reveal timestamps, model names, token counts, and session identifiers. Treat them as private usage records.
 
-The cache contains normalized copies of usage events. Treat it with the same care as your Claude Code history.
+## Cost Semantics
 
-## Cost Estimates
+`Cost` is an estimate, not an invoice or subscription meter.
 
-`Cost` is an estimate, not an Anthropic invoice or subscription-usage meter.
-
-The app maps model names to Opus, Sonnet, and Haiku pricing categories and accounts separately for regular input, cache creation, cache reads, and output tokens. Prices are refreshed from the [LiteLLM model price dataset](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) at startup, with bundled defaults as an offline fallback.
-
-Use the export for analysis and reconciliation, not as the sole source of truth for billing.
+- Claude prices are refreshed from the [LiteLLM model price dataset](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), with bundled offline defaults.
+- Codex uses [OpenAI's standard API token prices](https://developers.openai.com/api/docs/pricing) as an API-equivalent estimate.
+- Codex sessions authenticated through a ChatGPT plan are subscription usage; their actual billed cost cannot be derived from local logs. See [Codex authentication](https://developers.openai.com/codex/auth) and [Codex pricing](https://developers.openai.com/codex/pricing).
+- Tool calls, containers, regional premiums, and Batch/Flex/Fast pricing are outside this export.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `3456` | Local HTTP port |
-| `CLAUDE_USAGE_USER` | detected email or `unknown` | Value written to the `User` column |
-| `LITELLM_PRICING_URL` | LiteLLM's public pricing JSON | Alternative pricing dataset URL |
+| `USAGE_EXPORT_USER` | detected value or `unknown` | Shared `User` value |
+| `CLAUDE_USAGE_USER` | unset | Claude-only fallback label |
+| `CODEX_USAGE_USER` | unset | Codex-only fallback label |
+| `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code data root |
+| `CODEX_HOME` | `~/.codex` | Codex data root |
+| `LITELLM_PRICING_URL` | public LiteLLM JSON | Alternate Claude pricing URL |
 
 Example:
 
 ```bash
-PORT=8080 CLAUDE_USAGE_USER=you@example.com npm start
+PORT=8080 USAGE_EXPORT_USER=you@example.com \
+  CLAUDE_CONFIG_DIR=/data/claude CODEX_HOME=/data/codex npm start
 ```
-
-## Performance
-
-The first scan can take time when `~/.claude/` contains thousands of session files. The dashboard reports file-level progress while it works.
-
-Subsequent loads are faster because unchanged files are reused from an in-memory cache. The persistent cache also avoids reparsing unchanged files after a server restart. Table rendering is capped at 100 rows per page so a large export does not freeze the browser.
 
 ## Development
 
@@ -133,13 +178,12 @@ Subsequent loads are faster because unchanged files are reused from an in-memory
 npm test
 ```
 
-The project uses Node's built-in test runner. The test suite covers parsing, deduplication, date filtering, timezone boundaries, sorting, pricing categories, HTTP endpoints, and workbook export behavior.
-
 Project layout:
 
 ```text
-src/parser.js         Claude Code JSONL discovery and normalization
-src/pricing.js        Model pricing resolution
+src/parser.js         Claude Code discovery, normalization, and cache
+src/codex-parser.js   Codex discovery, normalization, and cache
+src/pricing.js        Provider-aware price resolution
 src/filter.js         Date-window filtering
 src/sort.js           Stable column sorting
 src/workbook.js       XLSX workbook generation
@@ -150,25 +194,25 @@ test/                 Node test suite
 
 ## Troubleshooting
 
-### The dashboard shows no rows
+### No rows appear
 
-Confirm that Claude Code has created JSONL history under `~/.claude/projects/` or `~/.claude/transcripts/`. Only assistant events containing `message.usage` can be exported.
+Confirm that at least one source directory above contains `.jsonl` files. Then check custom roots and permissions. Only records with token-usage metadata can be exported.
 
-### The first load is slow
+### First load is slow
 
-Start with the default 30-day view and let the initial scan finish. Later refreshes and restarts reuse cached parses. Selecting **All** may require scanning substantially more history.
+Let the initial 30-day index finish before selecting **All**. A complete Codex history can be gigabytes. Later loads reuse the disk cache.
+
+### Cost is blank
+
+The model has no published standard API price or is unknown. Blank is intentional; inventing a price would be misleading.
 
 ### Pricing refresh fails
 
-The app continues with bundled fallback prices. Check network access if you need the latest LiteLLM values.
-
-### The User column is `unknown`
-
-Start the app with `CLAUDE_USAGE_USER=you@example.com npm start`. Local Claude Code events do not consistently include an account identity.
+The app is fully usable offline with bundled prices. The warning only means the optional Claude price refresh failed.
 
 ## Scope
 
-This project is intentionally an export tool. It does not read Anthropic account quotas, replace the official billing console, upload telemetry, or attempt to reconstruct events missing from local Claude Code history.
+This is deliberately an export tool. It does not upload telemetry, read provider account quotas, reproduce official invoices, or reconstruct usage missing from local history.
 
 ## License
 

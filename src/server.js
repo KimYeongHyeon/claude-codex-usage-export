@@ -4,7 +4,8 @@ const path = require('node:path');
 
 const { filterRows } = require('./filter');
 const { DEFAULT_CLAUDE_DIR, collectRawRows, createProgressTracker } = require('./parser');
-const { initializePricingResolver } = require('./pricing');
+const { collectCodexRawRows, loadPersistentCache: loadCodexPersistentCache } = require('./codex-parser');
+const { createDefaultPricingResolver, initializePricingResolver } = require('./pricing');
 const { sortRows } = require('./sort');
 const { buildWorkbookBuffer } = require('./workbook');
 
@@ -177,6 +178,41 @@ function parseExportSortOptions(searchParams) {
 function createApp(options = {}) {
   const claudeDir = options.claudeDir || DEFAULT_CLAUDE_DIR;
   const getPricing = options.getPricing;
+  const includeCodex = options.includeCodex !== undefined
+    ? options.includeCodex
+    : Boolean(options.codexHome || options.codexDir || options.codexRoots || !options.claudeDir);
+
+  async function collectAllRows({ since, progress }) {
+    const claudeProgress = progress ? createProgressTracker() : null;
+    const codexProgress = progress && includeCodex ? createProgressTracker() : null;
+    if (progress) {
+      progress.get = () => {
+        const states = [claudeProgress, codexProgress].filter(Boolean).map((tracker) => tracker.get());
+        const total = states.reduce((sum, state) => sum + state.total, 0);
+        const processed = states.reduce((sum, state) => sum + state.processed, 0);
+        return {
+          phase: states.every((state) => state.phase === 'complete') ? 'complete' : 'parsing',
+          total,
+          processed,
+          percent: total > 0 ? Math.floor((processed / total) * 100) : 0,
+        };
+      };
+    }
+
+    const collectors = [collectRawRows({ claudeDir, getPricing, since, progress: claudeProgress })];
+    if (includeCodex) {
+      collectors.push(collectCodexRawRows({
+        codexHome: options.codexHome,
+        codexDir: options.codexDir,
+        roots: options.codexRoots,
+        getPricing,
+        since,
+        progress: codexProgress,
+      }));
+    }
+    const groups = await Promise.all(collectors);
+    return groups.flat().sort((left, right) => right.Date.localeCompare(left.Date));
+  }
 
   // Simple single active progress tracker.
   // For a local single-user dashboard this is sufficient and avoids any key mismatch issues.
@@ -197,20 +233,21 @@ function createApp(options = {}) {
         currentProgress = progress;
 
         try {
-          const rows = await collectRawRows({ claudeDir, getPricing, since, progress });
+          const rows = await collectAllRows({ since, progress });
           sendJson(response, 200, rows);
         } finally {
           // Keep the final 100% state briefly visible to the last poll.
-          setTimeout(() => {
+          const resetTimer = setTimeout(() => {
             if (currentProgress === progress) currentProgress = null;
           }, 8000);
+          resetTimer.unref?.();
         }
         return;
       }
 
       if (request.method === 'GET' && url.pathname === '/export.xlsx') {
         const since = resolveSinceMs(url.searchParams);
-        const rows = await collectRawRows({ claudeDir, getPricing, since });
+        const rows = await collectAllRows({ since });
         const explicitRange = parseExplicitExportRange(url.searchParams);
         const filteredRows = explicitRange
           ? filterRowsByExplicitRange(rows, explicitRange)
@@ -240,20 +277,21 @@ function createApp(options = {}) {
 
 if (require.main === module) {
   const port = Number(process.env.PORT || 3456);
-  initializePricingResolver()
-    .catch(() => null)
-    .then(async (state) => {
-      const getPricing = state && state.getPricing;
-      const app = createApp({ getPricing });
+  let activePricing = createDefaultPricingResolver();
+  const getPricing = (...args) => activePricing(...args);
+  const app = createApp({ getPricing });
 
-      // Pre-load persistent parse cache so first request after restart is fast
-      const { loadPersistentCache } = require('./parser');
-      loadPersistentCache().catch(() => {});
+  const { loadPersistentCache } = require('./parser');
+  loadPersistentCache().catch(() => {});
+  loadCodexPersistentCache().catch(() => {});
 
-      app.listen(port, () => {
-        console.log(`Claude usage dashboard running at http://127.0.0.1:${port}`);
-      });
-    });
+  app.listen(port, '127.0.0.1', () => {
+    console.log(`Claude + Codex usage dashboard running at http://127.0.0.1:${port}`);
+  });
+
+  initializePricingResolver().then((state) => {
+    if (state && state.getPricing) activePricing = state.getPricing;
+  }).catch(() => {});
 }
 
 module.exports = {

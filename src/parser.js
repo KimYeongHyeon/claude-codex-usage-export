@@ -4,11 +4,11 @@ const path = require('node:path');
 const readline = require('node:readline');
 const { createDefaultPricingResolver, initializePricingResolver } = require('./pricing');
 
-const DEFAULT_CLAUDE_DIR = path.join(os.homedir(), '.claude');
+const DEFAULT_CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
 const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 
 const PERSISTENT_CACHE_PATH = path.join(os.homedir(), '.claude-usage-dashboard-cache.json');
-const PERSISTENT_CACHE_VERSION = 1;
+const PERSISTENT_CACHE_VERSION = 2;
 
 function roundCost(value) {
   return Number(value.toFixed(2));
@@ -102,7 +102,9 @@ function extractEmail(value) {
 }
 
 function extractUser(entry) {
-  const configuredUser = String(process.env.CLAUDE_USAGE_USER || '').trim();
+  const configuredUser = String(
+    process.env.USAGE_EXPORT_USER || process.env.CLAUDE_USAGE_USER || ''
+  ).trim();
   if (configuredUser) {
     return configuredUser;
   }
@@ -205,6 +207,7 @@ function mapAssistantEntryToRow(entry, getPricing) {
 
   return {
     Date: entry.timestamp || '',
+    Provider: 'Claude Code',
     User: extractUser(entry),
     'Cloud Agent ID': extractCloudAgentId(entry),
     'Automation ID': extractAutomationId(entry),
@@ -254,41 +257,58 @@ let cacheMisses = 0;
 // On first load after server start, we populate the in-memory cache from disk.
 // mtime validation still happens on access, so stale entries get refreshed automatically.
 let persistentCacheLoaded = false;
+let persistentCacheLoadPromise = null;
+let persistentCacheSavePromise = null;
+let persistentCacheSaveRequested = false;
+let persistentCacheDirty = false;
 
 async function loadPersistentCache() {
   if (persistentCacheLoaded) return;
-  persistentCacheLoaded = true;
+  if (!persistentCacheLoadPromise) {
+    persistentCacheLoadPromise = (async () => {
+      try {
+        const data = await fs.promises.readFile(PERSISTENT_CACHE_PATH, 'utf8');
+        const parsed = JSON.parse(data);
 
-  try {
-    const data = await fs.promises.readFile(PERSISTENT_CACHE_PATH, 'utf8');
-    const parsed = JSON.parse(data);
+        if (
+          parsed.version !== PERSISTENT_CACHE_VERSION ||
+          !parsed.files ||
+          typeof parsed.files !== 'object'
+        ) {
+          return;
+        }
 
-    if (parsed.version !== PERSISTENT_CACHE_VERSION || !parsed.files || typeof parsed.files !== 'object') {
-      return; // incompatible format, ignore
-    }
-
-    let loadedCount = 0;
-    for (const [filePath, entry] of Object.entries(parsed.files)) {
-      if (entry && typeof entry.mtimeMs === 'number' && Array.isArray(entry.candidates)) {
-        fileParseCache.set(filePath, {
-          mtimeMs: entry.mtimeMs,
-          candidates: entry.candidates,
-        });
-        loadedCount++;
+        let loadedCount = 0;
+        for (const [filePath, entry] of Object.entries(parsed.files)) {
+          if (entry && typeof entry.mtimeMs === 'number' && Array.isArray(entry.candidates)) {
+            fileParseCache.set(filePath, {
+              mtimeMs: entry.mtimeMs,
+              candidates: entry.candidates,
+            });
+            loadedCount++;
+          }
+        }
+        if (loadedCount > 0) {
+          console.log(`Loaded ${loadedCount} files from persistent cache (${PERSISTENT_CACHE_PATH})`);
+        }
+      } catch (err) {
+        if (err.code !== 'ENOENT') {
+          console.warn('Failed to load persistent usage cache:', err.message);
+        }
+      } finally {
+        persistentCacheLoaded = true;
+        persistentCacheLoadPromise = null;
       }
-    }
-    if (loadedCount > 0) {
-      console.log(`Loaded ${loadedCount} files from persistent cache (${PERSISTENT_CACHE_PATH})`);
-    }
-  } catch (err) {
-    if (err.code !== 'ENOENT') {
-      console.warn('Failed to load persistent usage cache:', err.message);
-    }
-    // No cache file or unreadable = normal on first run
+    })();
   }
+
+  await persistentCacheLoadPromise;
 }
 
 async function savePersistentCache() {
+  if (!persistentCacheDirty) return;
+  persistentCacheDirty = false;
+  const tmpPath = `${PERSISTENT_CACHE_PATH}.${process.pid}.tmp`;
   try {
     const files = {};
     for (const [filePath, entry] of fileParseCache.entries()) {
@@ -305,12 +325,66 @@ async function savePersistentCache() {
       files,
     };
 
-    const tmpPath = PERSISTENT_CACHE_PATH + '.tmp';
-    await fs.promises.writeFile(tmpPath, JSON.stringify(payload), 'utf8');
+    await fs.promises.writeFile(tmpPath, JSON.stringify(payload), {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
     await fs.promises.rename(tmpPath, PERSISTENT_CACHE_PATH);
+    await fs.promises.chmod(PERSISTENT_CACHE_PATH, 0o600);
   } catch (err) {
+    persistentCacheDirty = true;
     console.warn('Failed to save persistent usage cache:', err.message);
+    await fs.promises.unlink(tmpPath).catch(() => {});
   }
+}
+
+function requestPersistentCacheSave() {
+  if (!persistentCacheDirty) return;
+  persistentCacheSaveRequested = true;
+  if (persistentCacheSavePromise) {
+    return;
+  }
+
+  persistentCacheSavePromise = (async () => {
+    await new Promise((resolve) => setImmediate(resolve));
+    while (persistentCacheSaveRequested) {
+      persistentCacheSaveRequested = false;
+      await savePersistentCache();
+    }
+  })().finally(() => {
+    persistentCacheSavePromise = null;
+    if (persistentCacheSaveRequested) {
+      requestPersistentCacheSave();
+    }
+  });
+}
+
+function compactAssistantEntry(entry) {
+  return {
+    type: 'assistant',
+    timestamp: entry.timestamp,
+    sessionId: entry.sessionId,
+    requestId: entry.requestId,
+    user: entry.user,
+    userEmail: entry.userEmail,
+    email: entry.email,
+    actor: entry.actor,
+    userType: entry.userType,
+    cloudAgentId: entry.cloudAgentId,
+    cloud_agent_id: entry.cloud_agent_id,
+    agentId: entry.agentId,
+    agent_id: entry.agent_id,
+    automationId: entry.automationId,
+    automation_id: entry.automation_id,
+    maxMode: entry.maxMode,
+    permissionMode: entry.permissionMode,
+    message: {
+      id: entry.message && entry.message.id,
+      model: entry.message && entry.message.model,
+      user: entry.message && entry.message.user,
+      usage: entry.message && entry.message.usage,
+    },
+  };
 }
 
 async function collectFileCandidates(filePath, sinceMs) {
@@ -348,7 +422,7 @@ async function collectFileCandidates(filePath, sinceMs) {
     }
 
     const candidate = {
-      entry,
+      entry: compactAssistantEntry(entry),
     };
 
     const dedupKey = buildDedupKey(entry);
@@ -367,6 +441,7 @@ async function collectFileCandidates(filePath, sinceMs) {
     mtimeMs: stat.mtimeMs,
     candidates: allCandidates,
   });
+  persistentCacheDirty = true;
 
   // Apply cutoff only for the value returned to this particular caller.
   if (sinceMs === null) {
@@ -489,7 +564,7 @@ async function collectRawRows(options = {}) {
   // Persist what we have now so the next server restart is fast
   // Fire-and-forget (don't block the response)
   if (usePersistentCache) {
-    savePersistentCache().catch(() => {});
+    requestPersistentCacheSave();
   }
 
   return [...projectRows, ...transcriptRows].sort((left, right) =>
@@ -506,7 +581,9 @@ module.exports = {
     fileParseCache.clear();
     cacheHits = 0;
     cacheMisses = 0;
+    persistentCacheDirty = false;
   },
+  __compactAssistantEntry: compactAssistantEntry,
   __getParseCacheStats() {
     return {
       size: fileParseCache.size,
@@ -520,6 +597,6 @@ module.exports = {
   // Test helper
   __clearPersistentCacheForTest() {
     try { fs.unlinkSync(PERSISTENT_CACHE_PATH); } catch {}
-    try { fs.unlinkSync(PERSISTENT_CACHE_PATH + '.tmp'); } catch {}
+    try { fs.unlinkSync(`${PERSISTENT_CACHE_PATH}.${process.pid}.tmp`); } catch {}
   },
 };

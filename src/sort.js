@@ -1,5 +1,6 @@
 const RAW_SORT_COLUMNS = [
   'Date',
+  'Provider',
   'User',
   'Cloud Agent ID',
   'Automation ID',
