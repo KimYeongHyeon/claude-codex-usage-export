@@ -1,0 +1,9 @@
+.github/
+.serena/
+e2e_demo/
+test/
+docs/
+todolist/
+.DS_Store
+*.log
+*.xlsx

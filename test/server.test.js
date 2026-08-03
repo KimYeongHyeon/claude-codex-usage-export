@@ -1,12 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 
 const XLSX = require('xlsx');
 
-const { createApp } = require('../src/server');
+const { createApp, listenOnAvailablePort } = require('../src/server');
 const { createDefaultPricingResolver } = require('../src/pricing');
 
 const getPricing = createDefaultPricingResolver();
@@ -32,6 +33,42 @@ async function listen(app) {
 async function close(app) {
   await new Promise((resolve, reject) => app.close((error) => (error ? reject(error) : resolve())));
 }
+
+test('listenOnAvailablePort advances to a free port when the default is occupied', async () => {
+  const blocker = http.createServer();
+  await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+  const occupiedPort = blocker.address().port;
+  const app = createApp({ claudeDir: makeTempClaudeDir(), getPricing });
+
+  try {
+    const selectedPort = await listenOnAvailablePort(app, {
+      port: occupiedPort,
+      findAvailable: true,
+    });
+    assert.ok(selectedPort > occupiedPort);
+    assert.equal(app.address().port, selectedPort);
+  } finally {
+    if (app.listening) await close(app);
+    await close(blocker);
+  }
+});
+
+test('listenOnAvailablePort preserves EADDRINUSE when an explicit port is occupied', async () => {
+  const blocker = http.createServer();
+  await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+  const occupiedPort = blocker.address().port;
+  const app = createApp({ claudeDir: makeTempClaudeDir(), getPricing });
+
+  try {
+    await assert.rejects(
+      listenOnAvailablePort(app, { port: occupiedPort, findAvailable: false }),
+      (error) => error && error.code === 'EADDRINUSE'
+    );
+  } finally {
+    if (app.listening) await close(app);
+    await close(blocker);
+  }
+});
 
 async function readWorkbookRows(response) {
   const workbookBuffer = Buffer.from(await response.arrayBuffer());

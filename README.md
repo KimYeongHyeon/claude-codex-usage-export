@@ -61,7 +61,7 @@ npm ci
 npm start
 ```
 
-The server starts at [http://127.0.0.1:3456](http://127.0.0.1:3456). It only listens on the local machine.
+The server prefers [http://127.0.0.1:3456](http://127.0.0.1:3456). If that port is already occupied, it automatically tries the next port and prints the actual `Open: http://127.0.0.1:PORT` URL in the terminal. It only listens on the local machine.
 
 ## Usage
 
@@ -260,6 +260,8 @@ PORT=8080 USAGE_EXPORT_USER=you@example.com \
   CLAUDE_CONFIG_DIR=/data/claude CODEX_HOME=/data/codex npm start
 ```
 
+If the preferred `PORT` is occupied, the exporter advances to the next available port and reports the selected URL.
+
 ## Development
 
 ```bash
@@ -285,6 +287,14 @@ test/                 Node test suite
 ### No rows appear
 
 Confirm that at least one source directory above contains `.jsonl` files. Then check custom roots and permissions. Only records with token-usage metadata can be exported.
+
+### Port 3456 is already in use
+
+No action is normally required. The exporter selects the next available port and prints the exact URL after `Open:`. You can still choose a preferred starting port with `PORT=8080`.
+
+### The browser console mentions `content-script-injectable.js`
+
+That filename belongs to a browser extension content script, not this exporter. Disable extensions for the localhost page or open it in a clean browser profile if the extension error affects the page.
 
 ### First load is slow
 

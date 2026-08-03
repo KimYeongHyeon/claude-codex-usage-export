@@ -277,8 +277,69 @@ function createApp(options = {}) {
   });
 }
 
+function listenOnAvailablePort(server, options = {}) {
+  const host = options.host || '127.0.0.1';
+  const requestedPort = Number(options.port ?? 3456);
+  const findAvailable = options.findAvailable !== false;
+  const maxAttempts = Number.isInteger(options.maxAttempts)
+    ? Math.max(1, options.maxAttempts)
+    : 100;
+
+  if (!Number.isInteger(requestedPort) || requestedPort < 1 || requestedPort > 65535) {
+    const error = new RangeError(`Invalid port: ${options.port}`);
+    error.code = 'ERR_INVALID_PORT';
+    return Promise.reject(error);
+  }
+
+  return new Promise((resolve, reject) => {
+    let currentPort = requestedPort;
+    let attempts = 0;
+
+    const tryListen = () => {
+      attempts += 1;
+
+      const cleanup = () => {
+        server.removeListener('error', onError);
+        server.removeListener('listening', onListening);
+      };
+      const onListening = () => {
+        cleanup();
+        resolve(currentPort);
+      };
+      const onError = (error) => {
+        cleanup();
+        const canRetry =
+          error &&
+          error.code === 'EADDRINUSE' &&
+          findAvailable &&
+          attempts < maxAttempts &&
+          currentPort < 65535;
+
+        if (canRetry) {
+          currentPort += 1;
+          setImmediate(tryListen);
+          return;
+        }
+
+        reject(error);
+      };
+
+      server.once('error', onError);
+      server.once('listening', onListening);
+      try {
+        server.listen(currentPort, host);
+      } catch (error) {
+        cleanup();
+        reject(error);
+      }
+    };
+
+    tryListen();
+  });
+}
+
 if (require.main === module) {
-  const port = Number(process.env.PORT || 3456);
+  const requestedPort = Number(process.env.PORT || 3456);
   let activePricing = createDefaultPricingResolver();
   const getPricing = (...args) => activePricing(...args);
   const app = createApp({ getPricing });
@@ -287,15 +348,30 @@ if (require.main === module) {
   loadPersistentCache().catch(() => {});
   loadCodexPersistentCache().catch(() => {});
 
-  app.listen(port, '127.0.0.1', () => {
-    console.log(`Claude + Codex usage dashboard running at http://127.0.0.1:${port}`);
-  });
+  listenOnAvailablePort(app, { port: requestedPort })
+    .then((selectedPort) => {
+      if (selectedPort !== requestedPort) {
+        console.warn(`Port ${requestedPort} is already in use; switched to ${selectedPort}.`);
+      }
+      console.log('\nClaude + Codex Usage Export is ready.');
+      console.log(`Open: http://127.0.0.1:${selectedPort}`);
+      console.log('Press Ctrl+C to stop.\n');
 
-  initializePricingResolver().then((state) => {
-    if (state && state.getPricing) activePricing = state.getPricing;
-  }).catch(() => {});
+      initializePricingResolver().then((state) => {
+        if (state && state.getPricing) activePricing = state.getPricing;
+      }).catch(() => {});
+    })
+    .catch((error) => {
+      if (error && error.code === 'EADDRINUSE') {
+        console.error(`No available port found starting at ${requestedPort}. Set PORT to another value.`);
+      } else {
+        console.error(`Failed to start usage exporter: ${error.message}`);
+      }
+      process.exitCode = 1;
+    });
 }
 
 module.exports = {
   createApp,
+  listenOnAvailablePort,
 };
