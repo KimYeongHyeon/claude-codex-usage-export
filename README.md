@@ -61,7 +61,7 @@ npm ci
 npm start
 ```
 
-The server prefers [http://127.0.0.1:3456](http://127.0.0.1:3456). If that port is already occupied, it automatically tries the next port and prints the actual `Open: http://127.0.0.1:PORT` URL in the terminal. It only listens on the local machine.
+The server prefers [http://127.0.0.1:3456](http://127.0.0.1:3456). If that port is already occupied, it automatically tries the next port and prints the actual `Open:` URL in the terminal. By default, it only listens on the local machine.
 
 ## Usage
 
@@ -87,6 +87,27 @@ The downloaded workbook contains one `Raw` worksheet. Dashboard filters and sort
 | `Refresh` | Rescans changed files and reuses cached results for unchanged files |
 
 Stop the server with `Ctrl+C` in the terminal where it is running.
+
+### Run on a remote server
+
+The recommended approach is an SSH tunnel. Start the exporter on the remote server, note the exact port printed after `Open:`, then run this on your computer:
+
+```bash
+ssh -N -L 45678:127.0.0.1:3456 user@example-server
+```
+
+Replace `3456` if the exporter selected another port, then open [http://127.0.0.1:45678](http://127.0.0.1:45678). This keeps the exporter bound to localhost and requires no public listener.
+
+Remote-development environments such as VS Code port forwarding, JupyterHub, and path-based workspace proxies are also supported. Open the forwarded URL exactly as provided, including a prefix such as `/proxy/3456/`. Dashboard API calls and downloads preserve that prefix.
+
+To expose the exporter directly on a trusted private network:
+
+```bash
+HOST=0.0.0.0 PORT=3456 \
+  npx --yes github:KimYeongHyeon/claude-usage-dashboard
+```
+
+The terminal prints the available local and network URLs. The exporter has no built-in authentication; do not expose it directly to the public internet. Put authentication and TLS in front of it when using a reverse proxy, and forward the complete app path including `/api/*` and `/export.xlsx`.
 
 ### Export from the command line
 
@@ -223,7 +244,7 @@ Both caches are written with owner-only permissions (`0600`) on macOS and Linux.
 
 ## Privacy and Network Access
 
-- The HTTP server binds explicitly to `127.0.0.1`.
+- The HTTP server binds to `127.0.0.1` by default. Setting `HOST` opts into another interface.
 - Source JSONL files never leave your machine.
 - Conversation text is not copied into the caches or export.
 - Excel files are generated locally.
@@ -246,6 +267,7 @@ The metadata caches still reveal timestamps, model names, token counts, and sess
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `3456` | Local HTTP port |
+| `HOST` | `127.0.0.1` | Listen address; use `0.0.0.0` only for intentional network access |
 | `USAGE_EXPORT_USER` | detected value or `unknown` | Shared `User` value |
 | `CLAUDE_USAGE_USER` | unset | Claude-only fallback label |
 | `CODEX_USAGE_USER` | unset | Codex-only fallback label |
@@ -291,6 +313,10 @@ Confirm that at least one source directory above contains `.jsonl` files. Then c
 ### Port 3456 is already in use
 
 No action is normally required. The exporter selects the next available port and prints the exact URL after `Open:`. You can still choose a preferred starting port with `PORT=8080`.
+
+### The dashboard says it received HTML instead of JSON
+
+Open the exact URL printed by the server or forwarding service, including any `/proxy/.../` prefix. If a reverse proxy is configured manually, make sure it forwards the dashboard, `/api/raw`, `/api/progress`, and `/export.xlsx` to the same exporter process. An HTML response from an API request usually means the proxy sent the request to a login page or fallback page instead.
 
 ### The browser console mentions `content-script-injectable.js`
 

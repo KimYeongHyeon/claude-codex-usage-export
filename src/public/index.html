@@ -722,9 +722,11 @@
           .join('');
       }
 
+      /*__APP_URL_HELPER__*/
+
       function updateDownloadLink() {
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-        const url = new URL('/export.xlsx', window.location.origin);
+        const url = resolveAppUrl('export.xlsx', window.location.href);
         url.searchParams.set('since', String(getSinceMsForPreset(activePreset, activeFilterNow)));
         url.searchParams.set('preset', activePreset);
         url.searchParams.set('timeZone', timeZone);
@@ -740,7 +742,7 @@
           url.searchParams.delete('sortBy');
           url.searchParams.delete('sortDirection');
         }
-        downloadLink.href = url.pathname + url.search;
+        downloadLink.href = url.href;
       }
 
       function renderPresetButtons() {
@@ -905,13 +907,13 @@
       function startProgressPolling(sinceMs) {
         stopProgressPolling();
         progressActive = true;
-        const url = new URL('/api/progress', window.location.origin);
+        const url = resolveAppUrl('api/progress', window.location.href);
         // Note: we no longer rely on 'since' for matching; server uses a single current tracker.
         // We still send it for future-proofing / logging if needed.
 
         const pollOnce = async () => {
           try {
-            const res = await fetch(url.pathname + url.search, { cache: 'no-store' });
+            const res = await fetch(url.href, { cache: 'no-store' });
             if (res.ok) {
               const data = await res.json();
               // Ignore late-resolving polls after polling stopped: the server keeps the
@@ -971,11 +973,19 @@
         startProgressPolling(sinceMs);
 
         try {
-          const url = new URL('/api/raw', window.location.origin);
+          const url = resolveAppUrl('api/raw', window.location.href);
           url.searchParams.set('since', String(sinceMs));
-          const response = await fetch(url.pathname + url.search, { cache: 'no-store' });
+          const response = await fetch(url.href, { cache: 'no-store' });
           if (!response.ok) {
             throw new Error(`Request failed with ${response.status}`);
+          }
+
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.toLowerCase().includes('application/json')) {
+            throw new Error(
+              `Expected JSON from ${url.href}, but received ${contentType || 'an unknown content type'}. ` +
+              'Open the exact URL printed by the server or check the reverse-proxy route.'
+            );
           }
 
           const rows = await response.json();

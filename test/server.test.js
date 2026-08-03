@@ -7,7 +7,7 @@ const path = require('node:path');
 
 const XLSX = require('xlsx');
 
-const { createApp, listenOnAvailablePort } = require('../src/server');
+const { createApp, getStartupUrls, listenOnAvailablePort } = require('../src/server');
 const { createDefaultPricingResolver } = require('../src/pricing');
 
 const getPricing = createDefaultPricingResolver();
@@ -67,6 +67,27 @@ test('listenOnAvailablePort preserves EADDRINUSE when an explicit port is occupi
   } finally {
     if (app.listening) await close(app);
     await close(blocker);
+  }
+});
+
+test('getStartupUrls returns a directly usable URL for a specific host', () => {
+  assert.deepEqual(getStartupUrls('127.0.0.1', 3457), ['http://127.0.0.1:3457']);
+  assert.deepEqual(getStartupUrls('::1', 3457), ['http://[::1]:3457']);
+});
+
+test('dashboard HTML includes the proxy-aware URL resolver', async () => {
+  const app = createApp({ claudeDir: makeTempClaudeDir(), getPricing });
+  const port = await listen(app);
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/`);
+    const html = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(html, /function resolveAppUrl/);
+    assert.doesNotMatch(html, /\/\*__APP_URL_HELPER__\*\//);
+  } finally {
+    await close(app);
   }
 });
 
