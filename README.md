@@ -33,6 +33,27 @@ Requirements:
 - Node.js 18 or newer
 - Local history from Claude Code, Codex, or both
 
+### Run immediately with npx
+
+No clone or local installation is required:
+
+```bash
+npx --yes github:KimYeongHyeon/claude-usage-dashboard
+```
+
+Open [http://127.0.0.1:3456](http://127.0.0.1:3456) after the server starts. The first `npx` run downloads the project and its dependency from GitHub; subsequent runs may reuse the local npm cache.
+
+Environment variables can be placed before the command:
+
+```bash
+PORT=8080 USAGE_EXPORT_USER=you@example.com \
+  npx --yes github:KimYeongHyeon/claude-usage-dashboard
+```
+
+This form is convenient for one-off use. Clone the repository when you want a pinned checkout, offline reuse, or development access.
+
+### Install from source
+
 ```bash
 git clone https://github.com/KimYeongHyeon/claude-usage-dashboard.git
 cd claude-usage-dashboard
@@ -46,7 +67,7 @@ The server starts at [http://127.0.0.1:3456](http://127.0.0.1:3456). It only lis
 
 ### Export from the dashboard
 
-1. Start the exporter with `npm start`.
+1. Start the exporter with the `npx` command above or with `npm start` from a clone.
 2. Open [http://127.0.0.1:3456](http://127.0.0.1:3456).
 3. Wait for the initial indexing progress to finish. The default load covers the last 30 days.
 4. Select a preset or enter a custom start and end date.
