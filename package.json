@@ -7,6 +7,9 @@
     "node": ">=18"
   },
   "main": "src/server.js",
+  "bin": {
+    "claude-codex-usage-export": "src/server.js"
+  },
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test"

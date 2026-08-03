@@ -25,7 +25,7 @@ It is a local exporter, not a hosted analytics service. Conversation content is 
 - Compact metadata-only disk caches for fast restarts
 - Automated tests on both Ubuntu and macOS with Node.js 18 and 22
 
-## Quick Start
+## Installation
 
 Requirements:
 
@@ -33,22 +33,110 @@ Requirements:
 - Node.js 18 or newer
 - Local history from Claude Code, Codex, or both
 
+### Run immediately with npx
+
+No clone or local installation is required:
+
+```bash
+npx --yes github:KimYeongHyeon/claude-usage-dashboard
+```
+
+Open [http://127.0.0.1:3456](http://127.0.0.1:3456) after the server starts. The first `npx` run downloads the project and its dependency from GitHub; subsequent runs may reuse the local npm cache.
+
+Environment variables can be placed before the command:
+
+```bash
+PORT=8080 USAGE_EXPORT_USER=you@example.com \
+  npx --yes github:KimYeongHyeon/claude-usage-dashboard
+```
+
+This form is convenient for one-off use. Clone the repository when you want a pinned checkout, offline reuse, or development access.
+
+### Install from source
+
 ```bash
 git clone https://github.com/KimYeongHyeon/claude-usage-dashboard.git
 cd claude-usage-dashboard
-npm install
+npm ci
 npm start
 ```
 
-Open [http://127.0.0.1:3456](http://127.0.0.1:3456), choose a range, then click **Download Excel**.
+The server starts at [http://127.0.0.1:3456](http://127.0.0.1:3456). It only listens on the local machine.
 
-For a headless Linux machine:
+## Usage
+
+### Export from the dashboard
+
+1. Start the exporter with the `npx` command above or with `npm start` from a clone.
+2. Open [http://127.0.0.1:3456](http://127.0.0.1:3456).
+3. Wait for the initial indexing progress to finish. The default load covers the last 30 days.
+4. Select a preset or enter a custom start and end date.
+5. Click a column header if the workbook should use a specific sort order.
+6. Click **Download Excel**.
+
+The downloaded workbook contains one `Raw` worksheet. Dashboard filters and sorting are applied to the exported rows.
+
+| Control | Behavior |
+| --- | --- |
+| `Today` / `Yesterday` | Uses calendar-day boundaries in the browser's time zone |
+| `Last 24h` | Uses a rolling 24-hour window |
+| `Last 7d` / `Last 30d` | Uses rolling 7-day or 30-day windows |
+| `All` | Scans all available local history |
+| Custom range | Includes the selected start and end dates |
+| Column header | Toggles ascending and descending export order |
+| `Refresh` | Rescans changed files and reuses cached results for unchanged files |
+
+Stop the server with `Ctrl+C` in the terminal where it is running.
+
+### Export from the command line
+
+The same workbook can be downloaded without opening a browser. Start the server, then call the export endpoint:
+
 
 ```bash
 npm start &
 curl --fail --output usage-raw.xlsx \
   'http://127.0.0.1:3456/export.xlsx?since=0&preset=all'
 ```
+
+Common examples:
+
+```bash
+# Last 7 days
+curl --fail --output usage-last-7d.xlsx \
+  'http://127.0.0.1:3456/export.xlsx?preset=last7d'
+
+# Everything since an ISO-8601 timestamp
+curl --fail --output usage-since-date.xlsx \
+  'http://127.0.0.1:3456/export.xlsx?since=2026-01-01T00:00:00Z&preset=all'
+
+# Sort the complete export by total tokens, largest first
+curl --fail --output usage-by-tokens.xlsx \
+  'http://127.0.0.1:3456/export.xlsx?since=0&preset=all&sortBy=Total%20Tokens&sortDirection=desc'
+```
+
+### HTTP endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /` | Local dashboard |
+| `GET /api/raw` | Normalized rows as JSON |
+| `GET /api/progress` | Current indexing progress |
+| `GET /export.xlsx` | Excel workbook download |
+
+Supported export parameters:
+
+| Parameter | Accepted values | Purpose |
+| --- | --- | --- |
+| `since` | Unix milliseconds or ISO-8601 timestamp | Limits the source scan; defaults to 30 days ago |
+| `preset` | `today`, `yesterday`, `last24h`, `last7d`, `last30d`, `all` | Selects the export time window |
+| `start`, `end` | Unix milliseconds or ISO-8601 timestamps | Defines an explicit range when both are present |
+| `inclusiveEnd` | `true` or `false` | Controls whether an explicit end timestamp is included |
+| `timeZone` | IANA name such as `Asia/Seoul` | Applies calendar-day presets in a specific time zone |
+| `sortBy` | Any export column name | Selects the sort column |
+| `sortDirection` | `asc` or `desc` | Selects the sort direction |
+
+`start`, `end`, and `inclusiveEnd` must be provided together. An invalid explicit range falls back to the selected preset.
 
 ## Data Sources
 
