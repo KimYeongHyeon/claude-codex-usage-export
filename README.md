@@ -1,5 +1,7 @@
 # Claude + Codex Usage Export
 
+*[English](README.en.md) · 한국어*
+
 > 로컬에 저장된 Claude Code와 OpenAI Codex 사용량을 한 화면에서 확인하고, 필터링된 원본 데이터를 Excel로 내보내는 로컬 전용 도구입니다.
 
 ![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white)
