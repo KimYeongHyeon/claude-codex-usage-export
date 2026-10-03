@@ -190,9 +190,9 @@ test('/api/raw merges Claude Code and Codex rows', async () => {
     const claudeResponse = await fetch(
       `http://127.0.0.1:${port}/export.xlsx?since=0&preset=all&source=claude`
     );
-    assert.equal(
+    assert.match(
       claudeResponse.headers.get('content-disposition'),
-      'attachment; filename="claude-code-usage.xlsx"'
+      /^attachment; filename="\d{8}_Claude\.xlsx"$/
     );
     await claudeResponse.arrayBuffer();
 
@@ -205,9 +205,9 @@ test('/api/raw merges Claude Code and Codex rows', async () => {
     const codexResponse = await fetch(
       `http://127.0.0.1:${port}/export.xlsx?since=0&preset=all&provider=codex`
     );
-    assert.equal(
+    assert.match(
       codexResponse.headers.get('content-disposition'),
-      'attachment; filename="codex-usage.xlsx"'
+      /^attachment; filename="\d{8}_Codex\.xlsx"$/
     );
     await codexResponse.arrayBuffer();
   } finally {
@@ -418,9 +418,9 @@ test('/export.xlsx applies preset filtering', async () => {
       exportResponse.headers.get('content-type'),
       /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/
     );
-    assert.equal(
+    assert.match(
       exportResponse.headers.get('content-disposition'),
-      'attachment; filename="claude-codex-usage.xlsx"'
+      /^attachment; filename="\d{8}_Claude_Codex\.xlsx"$/
     );
 
     const sheetRows = await readWorkbookRows(exportResponse);

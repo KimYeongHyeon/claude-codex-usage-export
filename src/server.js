@@ -49,9 +49,13 @@ function sendWorkbook(response, workbookBuffer, filename) {
 }
 
 function getExportFilename(source) {
-  if (source === 'claude') return 'claude-code-usage.xlsx';
-  if (source === 'codex') return 'codex-usage.xlsx';
-  return 'claude-codex-usage.xlsx';
+  const d = new Date();
+  const ymd = [d.getFullYear(), d.getMonth() + 1, d.getDate()]
+    .map((n) => String(n).padStart(2, '0'))
+    .join('');
+  if (source === 'claude') return `${ymd}_Claude.xlsx`;
+  if (source === 'codex') return `${ymd}_Codex.xlsx`;
+  return `${ymd}_Claude_Codex.xlsx`;
 }
 
 function parseTimestampQueryParam(value) {
